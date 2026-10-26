@@ -10,7 +10,6 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { DbManager } from '../db/DbManager';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { CuratedFeedService } from '../services/CuratedFeedService';
-import { TranscriptSettings } from '../prefs/TranscriptSettings';
 import { DownloadManager } from '../download/DownloadManager';
 import { NotificationService } from '../services/NotificationService';
 import { AvSessionBridge } from '../player/AvSessionBridge';
@@ -32,8 +31,6 @@ export default class EntryAbility extends UIAbility {
     UserPreferences.init(this.context);
     // 推荐板块的本地缓存文件需要上下文（见 CuratedFeedService）
     CuratedFeedService.init(this.context);
-    // AI 文字稿配置（非敏感项）；之前漏了这一步，导致设置页读写都落到默认值
-    TranscriptSettings.init(this.context);
     // 把持久化的沉浸光感档位灌进 AppStorage，玻璃组件首帧就按用户档位渲染
     UserPreferences.publishNavigationLightLevel();
     // 自定义字体：registerFont 不跨进程，每次启动都要重注册，并灌进 AppStorage

@@ -10,7 +10,6 @@
                 "pages/FeedSettingsPage",
                 "pages/PlayerPage",
     "pages/TranscriptPage",
-    "pages/TranscriptionSettingsPage",
                 "pages/SearchPage",
                 "pages/OpmlPage",
                 "pages/ImportExportPage",

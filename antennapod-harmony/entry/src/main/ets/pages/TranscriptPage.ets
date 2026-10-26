@@ -14,8 +14,6 @@ import { EventHub, EventType, PlaybackPositionData } from '../events/EventHub';
 import { FeedCover } from '../components/FeedCover';
 import { LazyDataSource } from '../components/LazyDataSource';
 import fs from '@ohos.file.fs';
-import { TranscriptConfig, TranscriptKeyStore, TranscriptSettings, TranscriptProviderKind } from '../prefs/TranscriptSettings';
-import { TranscriptionOutcome, TranscriptionProvider } from '../services/transcript/TranscriptionProvider';
 
 interface SearchHit {
   index: number;
@@ -27,8 +25,6 @@ interface SearchHit {
 export struct TranscriptPage {
   /** 全局字体族：导入自定义字体后 AppStorage 一变，本 struct 内所有 Text 一起重绘 */
   @StorageProp('app_font_family') appFontFamily: string = 'HarmonyOS Sans';
-  /** 单次上传上限（OpenAI 音频转写为 25MB）；超过即明确报错，不做假分段 */
-  private static readonly AI_MAX_BYTES: number = 25 * 1024 * 1024;
 
   @State episodeId: number = 0;
   @State item: FeedItem | undefined = undefined;
@@ -39,9 +35,6 @@ export struct TranscriptPage {
   @State autoFollow: boolean = true;
   @State searchActive: boolean = false;
   @State searchTerm: string = '';
-  @State aiConfig: TranscriptConfig = TranscriptSettings.load();
-  @State generating: boolean = false;
-  @State aiMessage: string = '';
   @State hits: SearchHit[] = [];
   /** 阅读字号（vp）：设置后立即重排正文并持久化 */
   @State fontSize: number = UserPreferences.getTranscriptFontSize();
@@ -213,8 +206,7 @@ export struct TranscriptPage {
             .layoutWeight(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           if (this.doc !== undefined) {
-            Text(this.doc?.isAiGenerated ? $r('app.string.transcript_source_ai')
-              : $r('app.string.transcript_source_official')).fontFamily(this.appFontFamily)
+            Text($r('app.string.transcript_source_official')).fontFamily(this.appFontFamily)
               .fontSize(DesignTokens.FONT_FOOTNOTE)
               .fontColor($r('app.color.text_secondary'))
               .padding({ left: 8, right: 8, top: 2, bottom: 2 })
@@ -336,150 +328,13 @@ export struct TranscriptPage {
         .textAlign(TextAlign.Center)
         .padding({ left: DesignTokens.SPACE_XXL, right: DesignTokens.SPACE_XXL })
 
-      if (this.aiMessage !== '') {
-        Text(this.aiMessage).fontFamily(this.appFontFamily)
-          .fontSize(DesignTokens.FONT_FOOTNOTE)
-          .fontColor($r('app.color.text_tertiary'))
-          .textAlign(TextAlign.Center)
-          .padding({ left: DesignTokens.SPACE_XXL, right: DesignTokens.SPACE_XXL })
-      }
-
-      // 已配置且测试通过：提供真实的 AI 生成入口
-      if (TranscriptSettings.isUsable(this.aiConfig)) {
-        Text($r('app.string.transcript_ai_generate_hint')).fontFamily(this.appFontFamily)
-          .fontSize(DesignTokens.FONT_FOOTNOTE)
-          .fontColor($r('app.color.text_tertiary'))
-          .textAlign(TextAlign.Center)
-          .padding({ left: DesignTokens.SPACE_XXL, right: DesignTokens.SPACE_XXL })
-
-        Row({ space: DesignTokens.SPACE_XS }) {
-          if (this.generating) {
-            LoadingProgress()
-              .width(18)
-              .height(18)
-              .color($r('app.color.player_text'))
-          }
-          Text(this.generating ? $r('app.string.transcript_ai_generating')
-            : $r('app.string.transcript_ai_generate')).fontFamily(this.appFontFamily)
-            .fontSize(DesignTokens.FONT_SUBTITLE)
-            .fontColor($r('app.color.player_text'))
-        }
-        .padding({ left: DesignTokens.SPACE_L, right: DesignTokens.SPACE_L, top: 10, bottom: 10 })
-        .borderRadius(20)
-        .backgroundColor($r('app.color.surface_secondary'))
-        .enabled(!this.generating)
-        .onClick(() => {
-          this.generateWithAi();
-        })
-      } else {
-        Text($r('app.string.transcript_ai_not_configured')).fontFamily(this.appFontFamily)
-          .fontSize(DesignTokens.FONT_FOOTNOTE)
-          .fontColor($r('app.color.text_tertiary'))
-          .textAlign(TextAlign.Center)
-          .padding({ left: DesignTokens.SPACE_XXL, right: DesignTokens.SPACE_XXL })
-
-        Text($r('app.string.transcript_go_settings')).fontFamily(this.appFontFamily)
-          .fontSize(DesignTokens.FONT_SUBTITLE)
-          .fontColor($r('app.color.player_text'))
-          .padding({ left: DesignTokens.SPACE_L, right: DesignTokens.SPACE_L, top: 10, bottom: 10 })
-          .borderRadius(20)
-          .backgroundColor($r('app.color.surface_secondary'))
-          .onClick(() => {
-            router.pushUrl({ url: 'pages/TranscriptionSettingsPage' });
-          })
-      }
     }
     .width('100%')
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
   }
 
-  /**
-   * 真实的 AI 生成：读本地音频 → 调服务商 → 保存 → 展示。
-   * 不下载音频、不伪造进度；超限或未下载都给出明确原因。
-   */
-  private async generateWithAi(): Promise<void> {
-    const item: FeedItem | undefined = this.item;
-    if (item === undefined || this.generating) {
-      return;
-    }
-    this.aiConfig = TranscriptSettings.load();
-    if (!TranscriptSettings.isUsable(this.aiConfig)) {
-      this.aiMessage = getContext(this).resourceManager.getStringSync($r('app.string.transcript_ai_not_configured'));
-      return;
-    }
-    const media: FeedMedia | undefined = item.media;
-    if (media === undefined || media.fileUrl === '') {
-      this.aiMessage = getContext(this).resourceManager.getStringSync($r('app.string.transcript_ai_need_download'));
-      return;
-    }
-    let audio: Uint8Array;
-    try {
-      const stat: fs.Stat = fs.statSync(media.fileUrl);
-      if (stat.size > TranscriptPage.AI_MAX_BYTES) {
-        this.aiMessage = getContext(this).resourceManager.getStringSync($r('app.string.transcript_ai_too_large'));
-        return;
-      }
-      const file: fs.File = fs.openSync(media.fileUrl, fs.OpenMode.READ_ONLY);
-      try {
-        const buffer: ArrayBuffer = new ArrayBuffer(stat.size);
-        fs.readSync(file.fd, buffer);
-        audio = new Uint8Array(buffer);
-      } finally {
-        fs.closeSync(file);
-      }
-    } catch (error) {
-      this.aiMessage = getContext(this).resourceManager.getStringSync($r('app.string.transcript_ai_failed'))
-        + (error as Error).message;
-      return;
-    }
-    const apiKey: string = await TranscriptKeyStore.load();
-    if (apiKey === '') {
-      this.aiMessage = getContext(this).resourceManager.getStringSync($r('app.string.transcript_settings_err_key'));
-      return;
-    }
-    this.generating = true;
-    this.aiMessage = '';
-    try {
-      const outcome: TranscriptionOutcome = await TranscriptionProvider.transcribe({
-        baseUrl: TranscriptSettings.effectiveBaseUrl(this.aiConfig),
-        apiKey: apiKey,
-        model: this.aiConfig.model,
-        language: this.aiConfig.language,
-        audio: audio,
-        fileName: 'episode' + this.episodeId.toString() + '.mp3',
-        mimeType: media.mimeType === '' ? 'audio/mpeg' : media.mimeType,
-        protocol: this.aiConfig.protocol === '' ? 'auto' : this.aiConfig.protocol
-      });
-      if (!outcome.ok) {
-        this.aiMessage = getContext(this).resourceManager.getStringSync($r('app.string.transcript_ai_failed'))
-          + outcome.message;
-        return;
-      }
-      const doc: TranscriptDocument = {
-        episodeId: this.episodeId,
-        transcriptId: 0,
-        sourceType: TranscriptSourceType.AI,
-        language: this.aiConfig.language === 'auto' ? '' : this.aiConfig.language,
-        provider: this.aiConfig.provider === TranscriptProviderKind.OPENAI ? 'openai' : 'custom',
-        model: this.aiConfig.model,
-        isTimed: outcome.timed,
-        isAiGenerated: true,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        segments: outcome.segments
-      };
-      const saved: TranscriptDocument = await TranscriptRepository.save(doc);
-      this.doc = saved;
-      this.dataSource.setData(saved.segments);
-      this.aiMessage = '';
-      this.syncActive(true);
-    } finally {
-      this.generating = false;
-    }
-  }
-
-  private async load(): Promise<void> {
+private async load(): Promise<void> {
     this.loading = true;
     try {
       this.item = await EpisodeRepository.getById(this.episodeId);
