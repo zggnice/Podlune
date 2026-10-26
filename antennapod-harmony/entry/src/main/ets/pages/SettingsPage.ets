@@ -1,0 +1,1377 @@
+import router from '@ohos.router';
+import common from '@ohos.app.ability.common';
+import { ConfigurationConstant } from '@kit.AbilityKit';
+import bundleManager from '@ohos.bundle.bundleManager';
+import i18n from '@ohos.i18n';
+import { UserPreferences } from '../prefs/UserPreferences';
+import { SortOrder } from '../model/Enums';
+import { EventHub, EventType, FeedUpdateData } from '../events/EventHub';
+import { WorkSchedulerManager } from '../work/WorkSchedulerManager';
+import { ImageCache } from '../services/ImageCache';
+import { PlayerManager } from '../player/PlayerManager';
+import { DesignTokens } from '../common/DesignTokens';
+import { NavigationMaterial } from '../common/NavigationMaterial';
+import { SwipeActions, SwipeActionId, SwipeScreen, SwipeActionSpec, swipeActionSpec } from '../common/SwipeActions';
+import { AppBar } from '../components/AppBar';
+import { TagChip } from '../components/TagChip';
+import { RowCard } from '../components/RowCard';
+
+/** 主题取值：0=跟随系统 1=浅色 2=深色 */
+const THEME_SYSTEM: number = 0;
+const THEME_LIGHT: number = 1;
+const THEME_DARK: number = 2;
+
+/** 上游 preference 行最小高度（两行文本 + 上下各 12dp） */
+const ROW_MIN_HEIGHT: number = 56;
+/** 前置 24dp 图标 + 16dp 间距：次级内容（胶囊、输入框）的缩进 */
+const ROW_INDENT: number = DesignTokens.ICON_XL + DesignTokens.SPACE_L;
+
+/** 滑动动作选择格高度（图标 + 文案，2 列网格单元） */
+const SWIPE_CHOICE_HEIGHT: number = 52;
+/** 滑动动作选择格最大高度：动作多时由网格内部滚动，避免弹层超出屏幕 */
+const SWIPE_CHOICE_MAX_HEIGHT: number = 216;
+
+/** 滑动动作变更事件负载：该事件不带数据，空接口用于满足 EventHub.publish 的 `data: object` 形参 */
+interface SwipeActionsChangedData {
+}
+
+/**
+ * 设置页（对齐上游 PreferenceActivity + preferences*.xml）：
+ * 分类标题 14sp 品牌色（上 16vp / 下 8vp），分类内每行 = 24vp 图标 + 标题 16sp
+ * + 可选摘要 14sp + 尾部控件（开关 / 当前值 + 箭头 / 数值输入），行间 1vp 分隔线，
+ * 整组包在 surface 卡片（圆角 12vp）内。
+ */
+@Entry
+@Component
+export struct SettingsPage {
+  /** 全局字体族：导入自定义字体后 AppStorage 一变，本 struct 内所有 Text 一起重绘 */
+  @StorageProp('app_font_family') appFontFamily: string = 'HarmonyOS Sans';
+  @State theme: number = THEME_SYSTEM;
+  /** 导航外观（沉浸光感档位）：0 关 / 1 柔 / 2 均衡 / 3 通透 */
+  @State navLightLevel: number = 2;
+  /** 进度条是否按背景自动配色（关掉恢复固定配色） */
+  @State adaptiveProgress: boolean = true;
+  @State streamOverDownload: boolean = false;
+  @State streamConfirmMobile: boolean = false;
+  @State speedText: string = '1.00x';
+  @State forwardText: string = '30';
+  @State rewindText: string = '10';
+  @State intervalText: string = '360';
+  @State autoDownload: boolean = false;
+  @State autoDownloadWifiOnly: boolean = true;
+  @State autoDownloadOnBattery: boolean = true;
+  @State cacheLimitText: string = '50';
+  @State autoDelete: boolean = false;
+  @State deleteRemovesFromQueue: boolean = true;
+  @State episodeNotification: boolean = true;
+  @State language: string = 'default';
+  /** 下载列表排序（上游 prefDownloadsSortedOrder；影响下载页与首页「管理下载」） */
+  @State downloadsSortOrder: SortOrder = SortOrder.DATE_NEW_OLD;
+  /** 下载页行内按钮改为播放（上游 prefDownloadsButtonAction，默认关 = 删除文件） */
+  @State downloadsButtonPlay: boolean = false;
+  @State message: string = '';
+  /** 行内时长是否显示「剩余时间」（上游 prefShowRemainingTime，默认关） */
+  @State showRemainingTime: boolean = false;
+  /** 时间显示是否随播放倍速折算（上游 prefTimeRespectsSpeed，默认开） */
+  @State timeRespectsSpeed: boolean = true;
+  /** 滑动动作设置弹层开关（上游 SwipeActionsDialog） */
+  @State showSwipeSheet: boolean = false;
+  /** 耳机/蓝牙断开时自动暂停（上游 prefPauseOnHeadsetDisconnect，默认开） */
+  @State pauseOnDisconnect: boolean = true;
+  /** 耳机重新接入时恢复播放（上游 prefUnpauseOnHeadsetReconnect，默认开） */
+  @State unpauseOnHeadsetReconnect: boolean = true;
+  /** 蓝牙重新接入时恢复播放（上游 prefUnpauseOnBluetoothReconnect，默认关） */
+  @State unpauseOnBluetoothReconnect: boolean = false;
+  /** 蓝牙断开后把进度往回拉几秒（移植版独有，默认开；见 UserPreferences.isRewindOnBluetoothDisconnect） */
+  @State rewindOnBluetoothDisconnect: boolean = true;
+  /** 蓝牙断开回退秒数（内存值，点「保存」才落盘） */
+  @State bluetoothRewindText: string = '5';
+  /** 弹层当前选中的屏幕（SwipeScreen.*） */
+  @State swipeScreen: string = SwipeScreen.QUEUE;
+  /** 该屏幕是否启用滑动动作（上游 KEY_PREFIX_NO_ACTION） */
+  @State swipeEnabled: boolean = true;
+  /** 展开中的动作选择器：0=都收起 1=右滑 2=左滑 */
+  @State pickerOpen: number = 0;
+  /** 内存中的右滑 / 左滑动作 id（点「确定」才落盘） */
+  @State rightAction: string = SwipeActionId.NONE;
+  @State leftAction: string = SwipeActionId.NONE;
+  /** 「关于」入口行右侧的当前版本（运行时从包信息读取，不硬编码） */
+  @State appVersion: string = '';
+
+  build() {
+    // 滑动动作弹层要盖住整个设置列表：对齐 InboxView / EpisodesPage，Stack 底部对齐，
+    // 弹层与半透明遮罩叠在列表之上。
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        AppBar({ title: $r('app.string.tab_settings'), showBack: true })
+
+        Scroll() {
+          Column() {
+            if (this.message !== '') {
+            Row({ space: DesignTokens.SPACE_XS }) {
+              SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+                .fontSize(DesignTokens.ICON_S)
+                .fontColor([$r('app.color.primary')])
+              Text(this.message).fontFamily(this.appFontFamily)
+                .fontSize(DesignTokens.FONT_FOOTNOTE)
+                .fontColor($r('app.color.primary'))
+                .layoutWeight(1)
+            }
+            .width('100%')
+            .padding({ bottom: DesignTokens.SPACE_S })
+          }
+
+          // ── User interface（上游 preferences_user_interface.xml）──
+          this.categoryTitle($r('app.string.settings_category_interface'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              this.themeRow()
+              this.rowDivider()
+              this.navAppearanceRow()
+              this.rowDivider()
+              this.switchRow($r('sys.symbol.wand_and_stars'), $r('app.string.setting_adaptive_progress'),
+                this.adaptiveProgress, (isOn: boolean) => {
+                  this.adaptiveProgress = isOn;
+                  UserPreferences.setAdaptiveProgressColor(isOn);
+                  this.notifyPrefsChanged();
+                })
+              this.rowDivider()
+                    this.rowDivider()
+              this.languageRow()
+              this.rowDivider()
+              // 行内时长显示剩余时间（上游 prefShowRemainingTime）
+              this.switchRow($r('sys.symbol.clock'), $r('app.string.setting_show_remaining_time'),
+                this.showRemainingTime, (isOn: boolean) => {
+                  this.showRemainingTime = isOn;
+                  UserPreferences.setShowRemainingTime(isOn);
+                  this.notifyPrefsChanged();
+                })
+              this.rowDivider()
+              // 首页区块的显示/隐藏与排序（原在首页顶栏「更多」菜单里，现归入界面设置）
+              this.navRow($r('sys.symbol.square_and_pencil'), $r('app.string.home_edit_blocks'), '', () => {
+                router.pushUrl({ url: 'pages/EditHomeSectionsPage' });
+              })
+              this.rowDivider()
+              // 全局字体：导入本机字体文件后整个软件换字体（平台无全局字体 API，逐 Text 应用）
+              this.navRow($r('sys.symbol.textformat'), $r('app.string.setting_font'), this.fontLabel(), () => {
+                router.pushUrl({ url: 'pages/FontSettingsPage' });
+              })
+              this.rowDivider()
+              // 滑动动作（上游 SwipeActionsDialog）：本移植版用底部弹层承载，入口行无当前值
+              this.navRow($r('sys.symbol.rectangle_on_rectangle'), $r('app.string.setting_swipe_actions'), '', () => {
+                this.openSwipeSheet();
+              })
+              this.rowDivider()
+              // 下载页行内按钮动作（上游 preferences_user_interface.xml 的 prefDownloadsButtonAction）
+              this.switchRow($r('sys.symbol.trash'), $r('app.string.setting_downloads_button_play'),
+                this.downloadsButtonPlay, (isOn: boolean) => {
+                  this.downloadsButtonPlay = isOn;
+                  UserPreferences.setDownloadsButtonPlay(isOn);
+                  this.notifyPrefsChanged();
+                })
+            }
+            .width('100%')
+          }
+
+
+          // ── Playback（上游 preferences_playback.xml：Playback control + Queue）──
+          this.categoryTitle($r('app.string.settings_section_playback'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              this.navRow($r('sys.symbol.timer'), $r('app.string.setting_speed'), this.speedText, () => {
+                this.cycleDefaultSpeed();
+              })
+              this.rowDivider()
+              this.numberRow($r('sys.symbol.arrow_left'), $r('app.string.setting_rewind'), this.rewindText, 72,
+                (text: string) => {
+                  this.rewindText = text;
+                }, $r('app.string.unit_seconds'))
+              this.rowDivider()
+              this.numberRow($r('sys.symbol.arrow_right'), $r('app.string.setting_forward'), this.forwardText, 72,
+                (text: string) => {
+                  this.forwardText = text;
+                }, $r('app.string.unit_seconds'))
+              this.rowDivider()
+              this.footerAction($r('app.string.dialog_save'), () => {
+                this.saveSkipSteps();
+              })
+              this.rowDivider()
+              this.switchRow($r('sys.symbol.music_note_list'), $r('app.string.setting_stream_first'),
+                this.streamOverDownload, (isOn: boolean) => {
+                  this.streamOverDownload = isOn;
+                  UserPreferences.setStreamOverDownload(isOn);
+                })
+              this.rowDivider()
+              this.switchRow($r('sys.symbol.exclamationmark_circle'), $r('app.string.setting_stream_confirm_mobile'),
+                this.streamConfirmMobile, (isOn: boolean) => {
+                  this.streamConfirmMobile = isOn;
+                  UserPreferences.setStreamConfirmMobile(isOn);
+                })
+              this.rowDivider()
+              // 时长显示随倍速折算（上游 prefTimeRespectsSpeed）
+              this.switchRow($r('sys.symbol.timer'), $r('app.string.setting_time_respects_speed'),
+                this.timeRespectsSpeed, (isOn: boolean) => {
+                  this.timeRespectsSpeed = isOn;
+                  UserPreferences.setTimeRespectsSpeed(isOn);
+                  this.notifyPrefsChanged();
+                })
+            }
+            .width('100%')
+          }
+
+          // ── Interruptions（上游 preferences_playback.xml 的 interruptions 分类）──
+          //
+          // 耳机拔出 / 蓝牙断开时暂停播放：鸿蒙不会代应用暂停，靠 AVPlayer 的
+          // audioOutputDeviceChangeWithInfo（REASON_OLD_DEVICE_UNAVAILABLE）由应用自己处理，
+          // 判定逻辑在 OutputDevicePolicy / PlayerManager.handleOutputDeviceChange。
+          this.categoryTitle($r('app.string.settings_category_interruptions'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              this.switchRow($r('sys.symbol.headphones'), $r('app.string.setting_pause_on_disconnect'),
+                this.pauseOnDisconnect, (isOn: boolean) => {
+                  this.pauseOnDisconnect = isOn;
+                  UserPreferences.setPauseOnHeadsetDisconnect(isOn);
+                })
+              // 上游用 android:dependency 把两条「重连恢复」挂在「断开暂停」之下：
+              // 断开都不暂停了，恢复自然无从谈起，直接隐藏（值仍保留）
+              if (this.pauseOnDisconnect) {
+                this.rowDivider()
+                this.switchRow($r('sys.symbol.earphone'), $r('app.string.setting_unpause_on_headset_reconnect'),
+                  this.unpauseOnHeadsetReconnect, (isOn: boolean) => {
+                    this.unpauseOnHeadsetReconnect = isOn;
+                    UserPreferences.setUnpauseOnHeadsetReconnect(isOn);
+                  })
+                this.rowDivider()
+                this.switchRow($r('sys.symbol.bluetooth'), $r('app.string.setting_unpause_on_bluetooth_reconnect'),
+                  this.unpauseOnBluetoothReconnect, (isOn: boolean) => {
+                    this.unpauseOnBluetoothReconnect = isOn;
+                    UserPreferences.setUnpauseOnBluetoothReconnect(isOn);
+                  })
+                // 蓝牙断开后的补偿回退（移植版独有）：蓝牙掉线到系统通知应用之间有延迟，
+                // 暂停的同时把进度往回拉几秒，重连后不会漏掉这段内容。
+                this.rowDivider()
+                this.switchRow($r('sys.symbol.bluetooth'), $r('app.string.setting_rewind_on_bluetooth_disconnect'),
+                  this.rewindOnBluetoothDisconnect, (isOn: boolean) => {
+                    this.rewindOnBluetoothDisconnect = isOn;
+                    UserPreferences.setRewindOnBluetoothDisconnect(isOn);
+                  })
+                // 与「快退秒数」同款：输入框 + 保存动作（关掉回退后整行收起）
+                if (this.rewindOnBluetoothDisconnect) {
+                  this.rowDivider()
+                  this.numberRow($r('sys.symbol.timer'), $r('app.string.setting_rewind_on_bluetooth_disconnect_secs'),
+                    this.bluetoothRewindText, 72, (text: string) => {
+                      this.bluetoothRewindText = text;
+                    }, $r('app.string.unit_seconds'))
+                  this.rowDivider()
+                  this.footerAction($r('app.string.dialog_save'), () => {
+                    this.saveBluetoothRewind();
+                  })
+                }
+              }
+            }
+            .width('100%')
+          }
+
+          // ── Network（上游 Downloads → Automation「Refresh podcasts」+ Details「Mobile updates」）──
+          this.categoryTitle($r('app.string.settings_category_network'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              this.numberRow($r('sys.symbol.arrow_clockwise'), $r('app.string.setting_schedule_refresh'),
+                this.intervalText, 72, (text: string) => {
+                  this.intervalText = text;
+                }, $r('app.string.unit_minutes'))
+              this.rowDivider()
+              this.footerActions($r('app.string.setting_schedule_apply'), () => {
+                this.applySchedule();
+              }, $r('app.string.setting_schedule_cancel'), () => {
+                this.cancelSchedule();
+              })
+              this.rowDivider()
+              this.switchRow($r('sys.symbol.wifi'), $r('app.string.setting_auto_download_wifi'),
+                this.autoDownloadWifiOnly, (isOn: boolean) => {
+                  this.autoDownloadWifiOnly = isOn;
+                  UserPreferences.setAutoDownloadWifiOnly(isOn);
+                })
+            }
+            .width('100%')
+          }
+
+          // ── Automatic download（上游 preferences_autodownload.xml）──
+          this.categoryTitle($r('app.string.settings_category_autodownload'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              this.switchRow($r('sys.symbol.download_1'), $r('app.string.setting_auto_download'), this.autoDownload,
+                (isOn: boolean) => {
+                  this.autoDownload = isOn;
+                  UserPreferences.setAutoDownload(isOn);
+                })
+              this.rowDivider()
+              this.switchRow($r('sys.symbol.battery'), $r('app.string.setting_auto_download_battery'),
+                this.autoDownloadOnBattery, (isOn: boolean) => {
+                  this.autoDownloadOnBattery = isOn;
+                  UserPreferences.setAutoDownloadOnBattery(isOn);
+                })
+              this.rowDivider()
+              this.numberRow($r('sys.symbol.rectangle_on_rectangle'), $r('app.string.setting_cache_limit'),
+                this.cacheLimitText, 64, (text: string) => {
+                  this.cacheLimitText = text;
+                }, $r('app.string.unit_episodes'))
+              this.rowDivider()
+              this.footerAction($r('app.string.dialog_save'), () => {
+                this.saveCacheLimit();
+              })
+            }
+            .width('100%')
+          }
+
+          // ── Storage（上游 preferences_auto_deletion.xml + Downloads「Choose data folder」）──
+          this.categoryTitle($r('app.string.settings_category_storage'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              this.switchRow($r('sys.symbol.trash'), $r('app.string.setting_auto_delete'), this.autoDelete,
+                (isOn: boolean) => {
+                  this.autoDelete = isOn;
+                  UserPreferences.setAutoDelete(isOn);
+                })
+              this.rowDivider()
+              this.switchRow($r('sys.symbol.list_bullet'), $r('app.string.setting_delete_removes_queue'),
+                this.deleteRemovesFromQueue, (isOn: boolean) => {
+                  this.deleteRemovesFromQueue = isOn;
+                  UserPreferences.setDeleteRemovesFromQueue(isOn);
+                })
+              this.rowDivider()
+              // 下载排序（上游由下载页的排序动作设置；本移植版放在设置里，点击循环切换）
+              this.downloadsSortNav()
+              this.rowDivider()
+              this.navRow($r('sys.symbol.sdcard_fill'), $r('app.string.setting_storage'), '', () => {
+                router.pushUrl({ url: 'pages/StoragePage' });
+              })
+            }
+            .width('100%')
+          }
+
+          // ── Notifications（上游 preferences_notifications.xml）──
+          this.categoryTitle($r('app.string.settings_category_notifications'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              this.switchRow($r('sys.symbol.bell'), $r('app.string.setting_episode_notification'),
+                this.episodeNotification, (isOn: boolean) => {
+                  this.episodeNotification = isOn;
+                  UserPreferences.setEpisodeNotification(isOn);
+                })
+            }
+            .width('100%')
+          }
+
+          // ── Library（历史 / 统计 / OPML / 缓存）──
+          this.categoryTitle($r('app.string.settings_section_library'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              this.navRow($r('sys.symbol.clock'), $r('app.string.setting_history'), '', () => {
+                router.pushUrl({ url: 'pages/HistoryPage' });
+              })
+              this.rowDivider()
+              // 收藏：原在底栏「更多」菜单，现在归入「库与统计」分区
+              this.navRow($r('sys.symbol.star'), $r('app.string.favorites_title'), '', () => {
+                router.pushUrl({ url: 'pages/FavoritesPage' });
+              })
+              this.rowDivider()
+              this.navRow($r('sys.symbol.histogram'), $r('app.string.setting_stats'), '', () => {
+                router.pushUrl({ url: 'pages/StatsPage' });
+              })
+              this.rowDivider()
+              // 备份与恢复（上游 preferences.xml 的 prefScreenImportExport 入口）：
+              // 整库导出/导入 + OPML 导出/导入都在这一屏
+              this.navRow($r('sys.symbol.externaldrive_fill'), $r('app.string.import_export_pref'), '', () => {
+                router.pushUrl({ url: 'pages/ImportExportPage' });
+              })
+              this.rowDivider()
+              this.tapRow($r('sys.symbol.trash'), $r('app.string.setting_clear_cache'), () => {
+                this.clearCache();
+              })
+            }
+            .width('100%')
+          }
+
+          // ── About（上游 preferences.xml 的 project 分类里那条 prefAbout）──
+          this.categoryTitle($r('app.string.about_title'))
+          RowCard({ pad: 0, radius: 20 }) {
+            Column() {
+              // 隐私政策与开源声明（商店提审要求：应用内可查阅）
+      this.navRow($r('sys.symbol.doc_plaintext'), $r('app.string.setting_legal'), '', () => {
+        router.pushUrl({ url: 'pages/LegalPage' });
+      })
+      this.rowDivider()
+      this.navRow($r('sys.symbol.info_circle'), $r('app.string.about_entry'), this.appVersion, () => {
+                router.pushUrl({ url: 'pages/AboutPage' });
+              })
+            }
+            .width('100%')
+          }
+        }
+        .width('100%')
+        .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN, bottom: DesignTokens.SPACE_XXL })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .backgroundColor(Color.Transparent)
+        .align(Alignment.Top)
+        .scrollBar(BarState.Off)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(Color.Transparent)
+
+      // 底部弹层（对照 InboxView.removeAllSheet）：全屏遮罩点击关闭，弹层贴底
+      if (this.showSwipeSheet) {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('#66000000')
+          .onClick(() => {
+            this.showSwipeSheet = false;
+          })
+        this.swipeActionsSheet()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.page_bg'))
+    // 沉浸式：背景同时延伸到状态栏与底部手势区（内容仍避开安全区）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  /** 分类标题（对齐上游 PreferenceCategory：14sp 品牌色，paddingTop 16dp / paddingBottom 8dp） */
+  @Builder
+  categoryTitle(label: ResourceStr) {
+    // 与参考图一致：分组标题是灰色小字，不用品牌色（品牌色只留给选中态与开关）
+    Text(label).fontFamily(this.appFontFamily)
+      .fontSize(13)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('app.color.text_secondary'))
+      .width('100%')
+      .padding({ top: DesignTokens.SPACE_L, bottom: DesignTokens.SPACE_S })
+  }
+
+  /** 行间分隔线（对齐参考图：左侧让出图标宽度，从文字起点开始，不贯穿卡片边缘） */
+  @Builder
+  rowDivider() {
+    Column() {
+      Divider()
+        .color($r('app.color.divider'))
+        .strokeWidth(1)
+        .width('100%')
+    }
+    .width('100%')
+    .padding({
+      left: DesignTokens.SPACE_L + DesignTokens.ICON_XL + DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L
+    })
+  }
+
+  /** 开关行：图标 + 标题 + 尾部开关 */
+  @Builder
+  switchRow(icon: Resource, title: ResourceStr, value: boolean, onChange: (isOn: boolean) => void) {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph(icon)
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Text(title).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+
+      Toggle({ type: ToggleType.Switch, isOn: value })
+        .selectedColor($r('app.color.primary'))
+        .onChange((isOn: boolean) => {
+          onChange(isOn);
+        })
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  /**
+   * 下载排序行：图标 + 标题 + 当前排序 + 箭头，点击循环切换并持久化。
+   *
+   * 单独写一个 builder 而不是调 `navRow(...)`：`@Builder` 的参数是**按值传递**，
+   * 把 `this.downloadsSortLabel()` 当参数传进去，切换后文案不会刷新
+   * （第 40 轮验收实测：设置里点了排序，右侧仍显示「最新优先」）。这里在 builder
+   * 内部直接读 `@State`，切换后标签才会跟着变。
+   *
+   * 切换后广播 `FEED_LIST_UPDATE`：首页 / 订阅页订阅了它，会重新读偏好并重排
+   * （否则要手动下拉刷新一次才看到新顺序）。
+   */
+  @Builder
+  downloadsSortNav() {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph($r('sys.symbol.sort'))
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Text($r('app.string.setting_sort_order')).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+
+      Text(this.downloadsSortLabel()).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+
+      SymbolGlyph($r('sys.symbol.chevron_forward'))
+        .fontSize(DesignTokens.ICON_M)
+        .fontColor([$r('app.color.text_disabled')])
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      this.downloadsSortOrder = ((this.downloadsSortOrder + 1) % 6) as SortOrder;
+      UserPreferences.setDownloadsSortedOrder(this.downloadsSortOrder);
+      // feedId 0 = 与 RefreshService.publishFeedListUpdate 一致：不针对某个订阅的「列表已变」通知
+      const data: FeedUpdateData = { feedId: 0 };
+      EventHub.publish(EventType.FEED_LIST_UPDATE, data);
+    })
+  }
+
+  /** 导航行：图标 + 标题 + 当前值 + 箭头 */
+  /** 与 navRow 相同，但图标走 SVG 图片 */
+  @Builder
+  navRowImage(icon: Resource, title: ResourceStr, value: string, onTap: () => void) {
+    Row({ space: DesignTokens.SPACE_L }) {
+      Image(icon)
+        .width(DesignTokens.ICON_XL)
+        .height(DesignTokens.ICON_XL)
+        .objectFit(ImageFit.Contain)
+        .opacity(0.75)
+      Text(title).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+      if (value !== '') {
+        Text(value).fontFamily(this.appFontFamily)
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .fontColor($r('app.color.text_secondary'))
+          .maxLines(1)
+      }
+      SymbolGlyph($r('sys.symbol.chevron_forward'))
+        .fontSize(DesignTokens.ICON_S)
+        .fontColor([$r('app.color.text_tertiary')])
+    }
+    .width('100%')
+    .height(56)
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      onTap();
+    })
+  }
+
+  /** 设置行右侧的当前字体名（未导入时显示「系统默认」） */
+  private fontLabel(): string {
+    if (UserPreferences.getAppFontPath() === '') {
+      return '系统默认';
+    }
+    return UserPreferences.getAppFontName();
+  }
+
+  @Builder
+  navRow(icon: Resource, title: ResourceStr, value: string, onTap: () => void) {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph(icon)
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Text(title).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+
+      if (value !== '') {
+        Text(value).fontFamily(this.appFontFamily)
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .fontColor($r('app.color.text_secondary'))
+          .maxLines(1)
+      }
+
+      SymbolGlyph($r('sys.symbol.chevron_forward'))
+        .fontSize(DesignTokens.ICON_M)
+        .fontColor([$r('app.color.text_disabled')])
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      onTap();
+    })
+  }
+
+  /** 数值输入行：图标 + 标题 + 尾部数字输入框 */
+  @Builder
+  numberRow(icon: Resource, title: ResourceStr, value: string, inputWidth: number,
+            onChange: (text: string) => void, unit: ResourceStr = '') {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph(icon)
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Text(title).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+
+      Row({ space: DesignTokens.SPACE_XS }) {
+        TextInput({ text: value }).fontFamily(this.appFontFamily)
+          .width(inputWidth)
+          .height(DesignTokens.HEIGHT_BUTTON_SM)
+          .type(InputType.Number)
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .backgroundColor($r('app.color.surface_secondary'))
+          .onChange((text: string) => {
+            onChange(text);
+          })
+        // 单位：数字右侧的弱化小字（秒 / 分钟 / 集）
+        if (unit !== '') {
+          Text(unit).fontFamily(this.appFontFamily)
+            .fontSize(DesignTokens.FONT_FOOTNOTE)
+            .fontColor($r('app.color.text_tertiary'))
+            .maxLines(1)
+        }
+      }
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  /** 纯动作行：图标 + 标题（无尾部控件） */
+  @Builder
+  tapRow(icon: Resource, title: ResourceStr, onTap: () => void) {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph(icon)
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Text(title).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      onTap();
+    })
+  }
+
+  /** 卡片底部文字动作（对齐上游对话框右下角的文本按钮） */
+  @Builder
+  footerAction(label: ResourceStr, onTap: () => void) {
+    Row() {
+      Blank()
+      Text(label).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.primary'))
+        .padding({
+          left: DesignTokens.SPACE_L,
+          right: DesignTokens.SPACE_L,
+          top: DesignTokens.SPACE_S,
+          bottom: DesignTokens.SPACE_S
+        })
+        .onClick(() => {
+          onTap();
+        })
+    }
+    .width('100%')
+    .padding({ left: DesignTokens.SPACE_S, right: DesignTokens.SPACE_S, bottom: DesignTokens.SPACE_XS })
+    .justifyContent(FlexAlign.End)
+  }
+
+  /** 卡片底部双动作（主 / 次，对齐上游对话框 OK / Cancel） */
+  @Builder
+  footerActions(primaryLabel: ResourceStr, onPrimary: () => void,
+                secondaryLabel: ResourceStr, onSecondary: () => void) {
+    Row({ space: DesignTokens.SPACE_S }) {
+      Blank()
+      Text(secondaryLabel).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .fontColor($r('app.color.text_secondary'))
+        .padding({
+          left: DesignTokens.SPACE_L,
+          right: DesignTokens.SPACE_L,
+          top: DesignTokens.SPACE_S,
+          bottom: DesignTokens.SPACE_S
+        })
+        .onClick(() => {
+          onSecondary();
+        })
+      Text(primaryLabel).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.primary'))
+        .padding({
+          left: DesignTokens.SPACE_L,
+          right: DesignTokens.SPACE_L,
+          top: DesignTokens.SPACE_S,
+          bottom: DesignTokens.SPACE_S
+        })
+        .onClick(() => {
+          onPrimary();
+        })
+    }
+    .width('100%')
+    .padding({ left: DesignTokens.SPACE_S, right: DesignTokens.SPACE_S, bottom: DesignTokens.SPACE_XS })
+    .justifyContent(FlexAlign.End)
+  }
+
+  /** 主题行（上游 ThemePreference 的自定义布局：标题 + 三张卡片，这里用胶囊） */
+  /**
+   * 导航外观：底栏 / 迷你播放条的材质档位。
+   * 点一下切换一档（关 → 柔 → 均衡 → 通透 → 关），立即生效并持久化。
+   * 「关」= 纯自绘玻璃，即经典外观；这是一键恢复的入口。
+   */
+  /**
+   * 导航外观（沉浸光感档位）：与其它设置项一致的 navRow 外观，
+   * 点一下切一档（关 → 柔 → 均衡 → 通透 → 关），立即生效并持久化。
+   * 「关」= 纯自绘玻璃 = 经典外观，这是一键恢复入口。
+   */
+  @Builder
+  navAppearanceRow() {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph($r('sys.symbol.rectangle_on_rectangle'))
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Text($r('app.string.setting_nav_appearance')).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+
+      Text(this.navLightLabel()).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+
+      SymbolGlyph($r('sys.symbol.chevron_forward'))
+        .fontSize(DesignTokens.ICON_M)
+        .fontColor([$r('app.color.text_disabled')])
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      const next: number = (this.navLightLevel + 1) % 4;
+      this.navLightLevel = next;
+      UserPreferences.setNavigationLightLevel(next);
+      this.notifyPrefsChanged();
+    })
+  }
+
+  /** 档位 → 文本（与 GlassSurface/NavigationMaterial 的档位语义一致） */
+  private navLightLabel(): string {
+    return getContext(this).resourceManager.getStringSync(NavigationMaterial.label(this.navLightLevel));
+  }
+
+  @Builder
+  themeRow() {
+    Column({ space: DesignTokens.SPACE_S }) {
+      Row({ space: DesignTokens.SPACE_L }) {
+        SymbolGlyph($r('sys.symbol.paintpalette'))
+          .fontSize(DesignTokens.ICON_XL)
+          .fontColor([$r('app.color.text_secondary')])
+        Text($r('app.string.setting_theme')).fontFamily(this.appFontFamily)
+          .fontSize(DesignTokens.FONT_BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: DesignTokens.SPACE_S }) {
+        TagChip({
+          label: $r('app.string.setting_theme_system'),
+          selected: this.theme === THEME_SYSTEM,
+          onTap: () => {
+            this.applyTheme(THEME_SYSTEM);
+          }
+        })
+        TagChip({
+          label: $r('app.string.setting_theme_light'),
+          selected: this.theme === THEME_LIGHT,
+          onTap: () => {
+            this.applyTheme(THEME_LIGHT);
+          }
+        })
+        TagChip({
+          label: $r('app.string.setting_theme_dark'),
+          selected: this.theme === THEME_DARK,
+          onTap: () => {
+            this.applyTheme(THEME_DARK);
+          }
+        })
+      }
+      .width('100%')
+      .padding({ left: ROW_INDENT })
+    }
+    .width('100%')
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /** 语言行（同上：标题 + 三张胶囊） */
+  @Builder
+  languageRow() {
+    Column({ space: DesignTokens.SPACE_S }) {
+      Row({ space: DesignTokens.SPACE_L }) {
+        SymbolGlyph($r('sys.symbol.textformat'))
+          .fontSize(DesignTokens.ICON_XL)
+          .fontColor([$r('app.color.text_secondary')])
+        Text($r('app.string.setting_language')).fontFamily(this.appFontFamily)
+          .fontSize(DesignTokens.FONT_BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: DesignTokens.SPACE_S }) {
+        TagChip({
+          label: $r('app.string.setting_language_system'),
+          selected: this.language === 'default',
+          onTap: () => {
+            this.applyLanguage('default');
+          }
+        })
+        TagChip({
+          label: $r('app.string.setting_language_zh'),
+          selected: this.language === 'zh-Hans',
+          onTap: () => {
+            this.applyLanguage('zh-Hans');
+          }
+        })
+        TagChip({
+          label: $r('app.string.setting_language_en'),
+          selected: this.language === 'en-US',
+          onTap: () => {
+            this.applyLanguage('en-US');
+          }
+        })
+      }
+      .width('100%')
+      .padding({ left: ROW_INDENT })
+    }
+    .width('100%')
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  /**
+   * 滑动动作设置弹层（对照上游 SwipeActionsDialog）：
+   * 屏幕胶囊 → 启用开关 → 右滑 / 左滑动作选择 → 取消 / 确定。
+   *
+   * 弹层内的取值都在 builder 内部直接读 `@State`，不通过参数传入：`@Builder` 参数是
+   * **按值传递**，换屏幕或换动作后传进来的旧值不会刷新（同 `downloadsSortNav()` 的说明）。
+   */
+  @Builder
+  swipeActionsSheet() {
+    Column({ space: DesignTokens.SPACE_M }) {
+      Text($r('app.string.setting_swipe_actions')).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+        .padding({ top: DesignTokens.SPACE_L })
+
+      // 屏幕选择：切换后重新读取该屏幕的左右滑动作与启用开关
+      Scroll() {
+        Row({ space: DesignTokens.SPACE_S }) {
+          this.swipeScreenChip($r('app.string.swipe_screen_queue'), SwipeScreen.QUEUE)
+          this.swipeScreenChip($r('app.string.swipe_screen_inbox'), SwipeScreen.INBOX)
+          this.swipeScreenChip($r('app.string.swipe_screen_feed_detail'), SwipeScreen.FEED_DETAIL)
+          this.swipeScreenChip($r('app.string.swipe_screen_downloads'), SwipeScreen.DOWNLOADS)
+        }
+      }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .width('100%')
+
+      this.swipeEnableRow()
+
+      this.swipePickerRow(1)
+      if (this.pickerOpen === 1) {
+        this.swipeChoiceGrid(1)
+      }
+      this.rowDivider()
+      this.swipePickerRow(2)
+      if (this.pickerOpen === 2) {
+        this.swipeChoiceGrid(2)
+      }
+
+      Row({ space: DesignTokens.SPACE_M }) {
+        Button($r('app.string.dialog_cancel'))
+          .layoutWeight(1)
+          .height(DesignTokens.HEIGHT_BUTTON)
+          .backgroundColor($r('app.color.surface_secondary'))
+          .fontColor($r('app.color.text_primary'))
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .onClick(() => {
+            this.showSwipeSheet = false;
+          })
+        Button($r('app.string.confirm_label'))
+          .layoutWeight(1)
+          .height(DesignTokens.HEIGHT_BUTTON)
+          .backgroundColor($r('app.color.primary'))
+          .fontColor($r('app.color.on_primary'))
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .onClick(() => {
+            this.saveSwipeActions();
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
+    .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN, bottom: DesignTokens.PAGE_MARGIN })
+  }
+
+  /** 屏幕胶囊（对照 EpisodesPage.filterChip：选中态由 `@State swipeScreen` 决定） */
+  @Builder
+  swipeScreenChip(label: ResourceStr, screen: string) {
+    TagChip({
+      label: label,
+      selected: this.swipeScreen === screen,
+      onTap: () => {
+        this.selectSwipeScreen(screen);
+      }
+    })
+  }
+
+  /** 「启用滑动动作」开关行：读 `@State swipeEnabled`，换屏幕后开关状态跟着刷新 */
+  @Builder
+  swipeEnableRow() {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph($r('sys.symbol.hand_draw'))
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Text($r('app.string.swipe_enable_label')).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+
+      Toggle({ type: ToggleType.Switch, isOn: this.swipeEnabled })
+        .selectedColor($r('app.color.primary'))
+        .onChange((isOn: boolean) => {
+          this.swipeEnabled = isOn;
+        })
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_S,
+      right: DesignTokens.SPACE_S,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  /** 动作选择行（slot：1=右滑 2=左滑）：当前动作 + 箭头，点击展开 / 收起下面的网格 */
+  @Builder
+  swipePickerRow(slot: number) {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph(swipeActionSpec(this.swipePickerAction(slot)).icon)
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Text(this.swipePickerTitle(slot)).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+
+      Text(swipeActionSpec(this.swipePickerAction(slot)).label).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+
+      SymbolGlyph(this.pickerOpen === slot ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
+        .fontSize(DesignTokens.ICON_M)
+        .fontColor([$r('app.color.text_disabled')])
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_S,
+      right: DesignTokens.SPACE_S,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      this.pickerOpen = this.pickerOpen === slot ? 0 : slot;
+    })
+  }
+
+  /** 动作网格（2 列）：该屏幕的所有可选动作，当前选中的用品牌色 */
+  @Builder
+  swipeChoiceGrid(slot: number) {
+    Grid() {
+      ForEach(SwipeActions.available(this.swipeScreen), (spec: SwipeActionSpec) => {
+        GridItem() {
+          this.swipeChoice(slot, spec)
+        }
+      }, (spec: SwipeActionSpec) => spec.id)
+    }
+    .columnsTemplate('1fr 1fr')
+    .columnsGap(DesignTokens.SPACE_S)
+    .rowsGap(DesignTokens.SPACE_S)
+    .width('100%')
+    .height(this.swipeChoiceGridHeight())
+    .scrollBar(BarState.Off)
+  }
+
+  /** 单个动作选择格：图标 + 文案，选中态品牌色 */
+  @Builder
+  swipeChoice(slot: number, spec: SwipeActionSpec) {
+    Row({ space: DesignTokens.SPACE_XS }) {
+      SymbolGlyph(spec.icon)
+        .fontSize(DesignTokens.ICON_M)
+        .fontColor([this.swipeChoiceColor(slot, spec.id)])
+
+      Text(spec.label).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .fontColor(this.swipeChoiceColor(slot, spec.id))
+        .maxLines(1)
+    }
+    .width('100%')
+    .height(SWIPE_CHOICE_HEIGHT)
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('app.color.surface_secondary'))
+    .borderRadius(DesignTokens.RADIUS_CHIP)
+    .onClick(() => {
+      this.pickSwipeAction(slot, spec.id);
+    })
+  }
+
+  aboutToAppear(): void {
+    this.theme = UserPreferences.getThemeMode();
+    this.navLightLevel = UserPreferences.getNavigationLightLevel();
+    this.adaptiveProgress = UserPreferences.getAdaptiveProgressColor();
+    this.streamOverDownload = UserPreferences.getStreamOverDownload();
+    this.streamConfirmMobile = UserPreferences.getStreamConfirmMobile();
+    this.speedText = UserPreferences.getDefaultPlaybackSpeed().toFixed(2) + 'x';
+    this.forwardText = UserPreferences.getFastForwardSecs().toString();
+    this.rewindText = UserPreferences.getRewindSecs().toString();
+    this.intervalText = String(UserPreferences.getUpdateIntervalMinutes());
+    this.autoDownload = UserPreferences.getAutoDownload();
+    this.autoDownloadWifiOnly = UserPreferences.getAutoDownloadWifiOnly();
+    this.autoDownloadOnBattery = UserPreferences.getAutoDownloadOnBattery();
+    this.cacheLimitText = UserPreferences.getEpisodeCacheCount().toString();
+    this.autoDelete = UserPreferences.getAutoDelete();
+    this.deleteRemovesFromQueue = UserPreferences.getDeleteRemovesFromQueue();
+    this.episodeNotification = UserPreferences.getEpisodeNotification();
+    this.language = UserPreferences.getAppLanguage();
+    this.downloadsSortOrder = UserPreferences.getDownloadsSortedOrder() as SortOrder;
+    this.downloadsButtonPlay = UserPreferences.getDownloadsButtonPlay();
+    this.showRemainingTime = UserPreferences.getShowRemainingTime();
+    this.timeRespectsSpeed = UserPreferences.getTimeRespectsSpeed();
+    this.pauseOnDisconnect = UserPreferences.isPauseOnHeadsetDisconnect();
+    this.unpauseOnHeadsetReconnect = UserPreferences.isUnpauseOnHeadsetReconnect();
+    this.unpauseOnBluetoothReconnect = UserPreferences.isUnpauseOnBluetoothReconnect();
+    this.rewindOnBluetoothDisconnect = UserPreferences.isRewindOnBluetoothDisconnect();
+    this.bluetoothRewindText = UserPreferences.getBluetoothDisconnectRewindSecs().toString();
+    this.appVersion = SettingsPage.readVersionLabel();
+  }
+
+  /** 「关于」入口的版本文案（v1.0.14）；读包信息失败时留空，入口行照常可点 */
+  private static readVersionLabel(): string {
+    try {
+      const info = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
+      return 'v' + info.versionName;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  /** 下载排序当前值文案（与订阅详情页的排序文案一致） */
+  downloadsSortLabel(): string {
+    const order: SortOrder = this.downloadsSortOrder;
+    if (order === SortOrder.DATE_OLD_NEW) {
+      return getContext(this).resourceManager.getStringSync($r('app.string.sort_date_old_new'));
+    }
+    if (order === SortOrder.TITLE_A_Z) {
+      return getContext(this).resourceManager.getStringSync($r('app.string.sort_title_a_z'));
+    }
+    if (order === SortOrder.TITLE_Z_A) {
+      return getContext(this).resourceManager.getStringSync($r('app.string.sort_title_z_a'));
+    }
+    if (order === SortOrder.DURATION_SHORT_LONG) {
+      return getContext(this).resourceManager.getStringSync($r('app.string.sort_duration_short_long'));
+    }
+    if (order === SortOrder.DURATION_LONG_SHORT) {
+      return getContext(this).resourceManager.getStringSync($r('app.string.sort_duration_long_short'));
+    }
+    return getContext(this).resourceManager.getStringSync($r('app.string.sort_date_new_old'));
+  }
+
+  applyTheme(value: number): void {
+    this.theme = value;
+    UserPreferences.setThemeMode(value);
+    SettingsPage.applyColorMode(getContext(this) as common.UIAbilityContext, value);
+  }
+
+  applyLanguage(value: string): void {
+    this.language = value;
+    UserPreferences.setAppLanguage(value);
+    SettingsPage.applyAppLanguage(value);
+    this.message = getContext(this).resourceManager.getStringSync($r('app.string.language_restart'));
+  }
+
+  cycleDefaultSpeed(): void {
+    const presets: number[] = PlayerManager.SPEED_PRESETS;
+    const current: number = UserPreferences.getDefaultPlaybackSpeed();
+    let index: number = presets.indexOf(current);
+    if (index < 0) {
+      index = presets.indexOf(1.0);
+    }
+    const next: number = presets[(index + 1) % presets.length];
+    UserPreferences.setDefaultPlaybackSpeed(next);
+    this.speedText = next.toFixed(2) + 'x';
+  }
+
+  saveSkipSteps(): void {
+    const forward: number = Number(this.forwardText.trim());
+    const rewind: number = Number(this.rewindText.trim());
+    if (Number.isFinite(forward) && forward > 0 && forward <= 300) {
+      UserPreferences.setFastForwardSecs(Math.floor(forward));
+    }
+    if (Number.isFinite(rewind) && rewind > 0 && rewind <= 300) {
+      UserPreferences.setRewindSecs(Math.floor(rewind));
+    }
+    this.message = getContext(this).resourceManager.getStringSync($r('app.string.dialog_saved'));
+  }
+
+  /** 蓝牙断开回退秒数（边界与「快退秒数」一致：1–300 秒，越界不落盘） */
+  saveBluetoothRewind(): void {
+    const secs: number = Number(this.bluetoothRewindText.trim());
+    if (Number.isFinite(secs) && secs > 0 && secs <= 300) {
+      UserPreferences.setBluetoothDisconnectRewindSecs(Math.floor(secs));
+      this.bluetoothRewindText = Math.floor(secs).toString();
+      this.message = getContext(this).resourceManager.getStringSync($r('app.string.dialog_saved'));
+    }
+  }
+
+  /** 定时刷新：保存间隔并登记 WorkScheduler 任务（0 = 从不，等价上游 feed_refresh_never） */
+  applySchedule(): void {
+    const interval: number = Number(this.intervalText);
+    if (Number.isFinite(interval) && interval === 0) {
+      UserPreferences.setUpdateIntervalMinutes(0);
+      WorkSchedulerManager.cancel();
+      this.message = getContext(this).resourceManager.getStringSync($r('app.string.schedule_cancelled'));
+      return;
+    }
+    if (Number.isFinite(interval) && interval >= 120) {
+      UserPreferences.setUpdateIntervalMinutes(interval);
+      const context = getContext(this) as common.Context;
+      WorkSchedulerManager.schedule(context, interval);
+      this.message = getContext(this).resourceManager.getStringSync($r('app.string.schedule_set')) + interval;
+    } else {
+      this.message = getContext(this).resourceManager.getStringSync($r('app.string.schedule_invalid'));
+    }
+  }
+
+  /** 取消定时刷新：停任务并持久化「从不」，否则冷启动会被 restore() 重新登记 */
+  cancelSchedule(): void {
+    WorkSchedulerManager.cancel();
+    UserPreferences.setUpdateIntervalMinutes(0);
+    this.message = getContext(this).resourceManager.getStringSync($r('app.string.schedule_cancelled'));
+  }
+
+  /** 自动下载集数上限（上游「Episode limit」） */
+  saveCacheLimit(): void {
+    const limit: number = Number(this.cacheLimitText.trim());
+    if (Number.isFinite(limit) && limit > 0) {
+      UserPreferences.setEpisodeCacheCount(Math.floor(limit));
+      this.message = getContext(this).resourceManager.getStringSync($r('app.string.dialog_saved'));
+    }
+  }
+
+  clearCache(): void {
+    ImageCache.clearCache(getContext(this));
+    this.message = getContext(this).resourceManager.getStringSync($r('app.string.cache_cleared'));
+  }
+
+  /** 打开滑动动作弹层：每次从队列屏开始（对齐上游 SwipeActionsDialog 的默认 tag），并载入该屏配置 */
+  openSwipeSheet(): void {
+    this.swipeScreen = SwipeScreen.QUEUE;
+    this.pickerOpen = 0;
+    this.loadSwipeActions();
+    this.showSwipeSheet = true;
+  }
+
+  /** 切换屏幕胶囊：重新读取该屏幕的左右滑动作与启用开关 */
+  selectSwipeScreen(screen: string): void {
+    this.swipeScreen = screen;
+    this.pickerOpen = 0;
+    this.loadSwipeActions();
+  }
+
+  /** 读取当前屏幕的 [右滑, 左滑] 动作与启用开关（对照上游 SwipeActions.getPrefsWithDefaults） */
+  loadSwipeActions(): void {
+    const resolved: string[] = SwipeActions.resolve(this.swipeScreen);
+    this.rightAction = resolved[0];
+    this.leftAction = resolved[1];
+    this.swipeEnabled = SwipeActions.isEnabled(this.swipeScreen);
+  }
+
+  /** 选择行标题（slot：1=右滑 2=左滑） */
+  swipePickerTitle(slot: number): ResourceStr {
+    return slot === 1 ? $r('app.string.swipe_right_label') : $r('app.string.swipe_left_label');
+  }
+
+  /** 选择行当前动作 id（slot：1=右滑 2=左滑） */
+  swipePickerAction(slot: number): string {
+    return slot === 1 ? this.rightAction : this.leftAction;
+  }
+
+  /** 该侧是否选中了此动作 */
+  isSwipeChoiceSelected(slot: number, actionId: string): boolean {
+    return this.swipePickerAction(slot) === actionId;
+  }
+
+  /** 选择格配色：选中项品牌色，其余次级色 */
+  swipeChoiceColor(slot: number, actionId: string): Resource {
+    return this.isSwipeChoiceSelected(slot, actionId)
+      ? $r('app.color.primary')
+      : $r('app.color.text_secondary');
+  }
+
+  /** 选择网格高度：按 2 列估行数，超过上限后由网格内部滚动 */
+  swipeChoiceGridHeight(): number {
+    const count: number = SwipeActions.available(this.swipeScreen).length;
+    const rows: number = Math.ceil(count / 2);
+    const needed: number = rows * SWIPE_CHOICE_HEIGHT + (rows - 1) * DesignTokens.SPACE_S;
+    return needed > SWIPE_CHOICE_MAX_HEIGHT ? SWIPE_CHOICE_MAX_HEIGHT : needed;
+  }
+
+  /** 选中动作：只改内存里的选择（点「确定」才落盘），随后收起网格 */
+  pickSwipeAction(slot: number, actionId: string): void {
+    if (slot === 1) {
+      this.rightAction = actionId;
+    } else {
+      this.leftAction = actionId;
+    }
+    this.pickerOpen = 0;
+  }
+
+  /**
+   * 确定：写入该屏幕的左右滑动作与启用开关，广播 SWIPE_ACTIONS_CHANGED 让队列 / 收件箱 /
+   * 订阅详情 / 下载页重新读取配置，并复用其它设置的「已保存」提示。
+   */
+  saveSwipeActions(): void {
+    SwipeActions.set(this.swipeScreen, this.rightAction, this.leftAction);
+    SwipeActions.setEnabled(this.swipeScreen, this.swipeEnabled);
+    // 该事件不带数据；显式声明负载类型，避免 ArkTS 的无类型对象字面量错误
+    const data: SwipeActionsChangedData = {};
+    EventHub.publish(EventType.SWIPE_ACTIONS_CHANGED, data);
+    this.pickerOpen = 0;
+    this.showSwipeSheet = false;
+    this.message = getContext(this).resourceManager.getStringSync($r('app.string.dialog_saved'));
+  }
+
+  /**
+   * 影响列表显示的偏好（显示剩余时间 / 时长按倍速折算）变化后广播，
+   * 队列页据此重新读取偏好并重绘（页签常驻，不会重新走 aboutToAppear）。
+   */
+  private notifyPrefsChanged(): void {
+    const data: SwipeActionsChangedData = {};
+    EventHub.publish(EventType.PREFS_CHANGED, data);
+  }
+
+  /** 设置应用语言（'default' = 跟随系统）；需冷启动生效 */
+  static applyAppLanguage(language: string): void {
+    try {
+      i18n.System.setAppPreferredLanguage(language);
+    } catch (error) {
+      // 语言设置失败不阻断其他设置
+    }
+  }
+
+  /** 切换应用级深浅色模式；0=跟随系统 */
+  static applyColorMode(context: common.UIAbilityContext, mode: number): void {
+    try {
+      let colorMode: ConfigurationConstant.ColorMode = ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET;
+      if (mode === THEME_DARK) {
+        colorMode = ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+      } else if (mode === THEME_LIGHT) {
+        colorMode = ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
+      }
+      context.getApplicationContext().setColorMode(colorMode);
+    } catch (error) {
+      // 主题切换失败不影响设置保存
+    }
+  }
+}

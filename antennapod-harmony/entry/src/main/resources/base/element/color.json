@@ -1,0 +1,448 @@
+{
+  "color": [
+    {
+      "name": "nav_bar_stroke",
+      "value": "#1F000000"
+    },
+    {
+      "name": "nav_bar_fill",
+      "value": "#BFFFFFFF"
+    },
+    {
+      "name": "nav_item_idle",
+      "value": "#6E6E73"
+    },
+    {
+      "name": "nav_brand",
+      "value": "#8000FF"
+    },
+    {
+      "name": "stats_muted",
+      "value": "#4A4A4F"
+    },
+    {
+      "name": "start_window_background",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "feed_appbar_glass",
+      "value": "#D9FFFFFF"
+    },
+    {
+      "name": "page_bg",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "surface",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "surface_secondary",
+      "value": "#F7F8FA"
+    },
+    {
+      "name": "divider",
+      "value": "#0D000000"
+    },
+    {
+      "name": "primary",
+      "value": "#7B4DFF"
+    },
+    {
+      "name": "primary_container",
+      "value": "#EDE7FF"
+    },
+    {
+      "name": "on_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "text_primary",
+      "value": "#DD000000"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#99000000"
+    },
+    {
+      "name": "text_tertiary",
+      "value": "#66000000"
+    },
+    {
+      "name": "text_disabled",
+      "value": "#33000000"
+    },
+    {
+      "name": "success",
+      "value": "#00A878"
+    },
+    {
+      "name": "error",
+      "value": "#E84026"
+    },
+    {
+      "name": "error_container",
+      "value": "#FDECE8"
+    },
+    {
+      "name": "star",
+      "value": "#FFB300"
+    },
+    {
+      "name": "badge_bg",
+      "value": "#E84026"
+    },
+    {
+      "name": "scrubber_track",
+      "value": "#26000000"
+    },
+    {
+      "name": "surface_container",
+      "value": "#EBEEF3"
+    },
+    {
+      "name": "surface_container_playing",
+      "value": "#C8D8DE"
+    },
+    {
+      "name": "card_on_scrim_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "card_pill_bg",
+      "value": "#3DFFFFFF"
+    },
+    {
+      "name": "card_pill_fg",
+      "value": "#E6FFFFFF"
+    },
+    {
+      "name": "flow_fade_transparent",
+      "value": "#00F1F3F5"
+    },
+    {
+      "name": "cover_edge",
+      "value": "#1C000000"
+    },
+    {
+      "name": "cover_placeholder",
+      "value": "#22777777"
+    },
+    {
+      "name": "cover_text_bg",
+      "value": "#55333333"
+    },
+    {
+      "name": "pill_on_cover",
+      "value": "#D2404040"
+    },
+    {
+      "name": "nav_glass_tint",
+      "value": "#18FFFFFF"
+    },
+    {
+      "name": "nav_glass_light",
+      "value": "#CCFFFFFF"
+    },
+    {
+      "name": "nav_selected",
+      "value": "#1F7B4DFF"
+    },
+    {
+      "name": "nav_fallback",
+      "value": "#D9F2F3F5"
+    },
+    {
+      "name": "nav_solid",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "top_primary_action",
+      "value": "#7B4DFF"
+    },
+    {
+      "name": "glass_fill",
+      "value": "#0AFFFFFF"
+    },
+    {
+      "name": "glass_stroke",
+      "value": "#1F000000"
+    },
+    {
+      "name": "stats_card",
+      "value": "#F6F7F9"
+    },
+    {
+      "name": "stats_bg",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "stats_chip",
+      "value": "#EAECF0"
+    },
+    {
+      "name": "stats_track",
+      "value": "#CDD2DA"
+    },
+    {
+      "name": "stats_segment_on_bg",
+      "value": "#1C1C1E"
+    },
+    {
+      "name": "stats_segment_on",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "stats_badge_on_bg",
+      "value": "#7B4DFF"
+    },
+    {
+      "name": "stats_badge_on",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "inbox_card",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "inbox_bg",
+      "value": "#EEEEF3"
+    },
+    {
+      "name": "inbox_track",
+      "value": "#E5E5EC"
+    },
+    {
+      "name": "inbox_action_bg",
+      "value": "#F1E8FF"
+    },
+    {
+      "name": "ambient_violet",
+      "value": "#DDE3FA"
+    },
+    {
+      "name": "ambient_blue",
+      "value": "#DCE4FC"
+    },
+    {
+      "name": "ambient_warm",
+      "value": "#FBF1F0"
+    },
+    {
+      "name": "ambient_base",
+      "value": "#F7F8FD"
+    },
+    {
+      "name": "ambient_upper",
+      "value": "#F7F8FD"
+    },
+    {
+      "name": "ambient_lower",
+      "value": "#F2F4FD"
+    },
+    {
+      "name": "ambient_bottom",
+      "value": "#EBF0FE"
+    },
+    {
+      "name": "ambient_mid",
+      "value": "#F8F8FD"
+    },
+    {
+      "name": "ambient_top",
+      "value": "#FAFAFE"
+    },
+    {
+      "name": "search_card_bg",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "search_bg",
+      "value": "#F6F6F9"
+    },
+    {
+      "name": "search_action_bg",
+      "value": "#F1E8FF"
+    },
+    {
+      "name": "search_hint_icon",
+      "value": "#9A9AA3"
+    },
+    {
+      "name": "search_field_bg",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "feed_hero_top",
+      "value": "#E8E4F8"
+    },
+    {
+      "name": "feed_hero_mid",
+      "value": "#F7F6FC"
+    },
+    {
+      "name": "player_text",
+      "value": "#0A0A0A"
+    },
+    {
+      "name": "player_mode_bg",
+      "value": "#F1F1F3"
+    },
+    {
+      "name": "player_button",
+      "value": "#111111"
+    },
+    {
+      "name": "player_text_secondary",
+      "value": "#3C3C41"
+    },
+    {
+      "name": "player_text_tertiary",
+      "value": "#55555A"
+    },
+    {
+      "name": "player_icon_secondary",
+      "value": "#666666"
+    },
+    {
+      "name": "player_on_button",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "player_flow_scrim_top",
+      "value": "#59FFFFFF"
+    },
+    {
+      "name": "player_flow_scrim_bottom",
+      "value": "#D9FFFFFF"
+    },
+    {
+      "name": "player_flow_scrim_mid",
+      "value": "#21FFFFFF"
+    },
+    {
+      "name": "player_bg",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "player_progress",
+      "value": "#2B2B30"
+    },
+    {
+      "name": "player_chip",
+      "value": "#F3F3F5"
+    },
+    {
+      "name": "player_toolbar",
+      "value": "#F5F5F7"
+    },
+    {
+      "name": "player_icon",
+      "value": "#171717"
+    },
+    {
+      "name": "player_track",
+      "value": "#DCDCE2"
+    },
+    {
+      "name": "player_divider",
+      "value": "#E5E5E7"
+    },
+    {
+      "name": "player_accent",
+      "value": "#8000FF"
+    },
+    {
+      "name": "player_accent_on",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "episode_accent",
+      "value": "#5B2A9E"
+    },
+    {
+      "name": "category_skeleton",
+      "value": "#EAEBEE"
+    },
+    {
+      "name": "category_chip_active",
+      "value": "#ECEDEF"
+    },
+    {
+      "name": "add_feed_search_bg",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "card_scrim_soft",
+      "value": "#1A000000"
+    },
+    {
+      "name": "card_scrim_mid",
+      "value": "#5C000000"
+    },
+    {
+      "name": "card_scrim_strong",
+      "value": "#A6000000"
+    },
+    {
+      "name": "card_scrim_base",
+      "value": "#C4000000"
+    },
+    {
+      "name": "card_on_scrim_secondary",
+      "value": "#CCFFFFFF"
+    },
+    {
+      "name": "card_on_scrim_tertiary",
+      "value": "#B3FFFFFF"
+    },
+    {
+      "name": "detail_action_chip",
+      "value": "#E6E8EB"
+    },
+    {
+      "name": "player_bg_forced",
+      "value": "#000000"
+    },
+    {
+      "name": "player_chip_forced",
+      "value": "#1C1C1E"
+    },
+    {
+      "name": "player_flow_scrim_bottom_forced",
+      "value": "#66000000"
+    },
+    {
+      "name": "player_flow_scrim_mid_forced",
+      "value": "#14000000"
+    },
+    {
+      "name": "player_flow_scrim_top_forced",
+      "value": "#24000000"
+    },
+    {
+      "name": "player_mode_bg_forced",
+      "value": "#1C1C1E"
+    },
+    {
+      "name": "player_text_forced",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "player_text_secondary_forced",
+      "value": "#D9D9E0"
+    },
+    {
+      "name": "player_text_tertiary_forced",
+      "value": "#BFC0C8"
+    },
+    {
+      "name": "player_toolbar_forced",
+      "value": "#1C1C1E"
+    },
+    {
+      "name": "player_track_forced",
+      "value": "#3A3A3F"
+    }
+  ]
+}

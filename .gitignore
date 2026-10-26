@@ -1,0 +1,65 @@
+# 上游参考源码（只读克隆，不作为本仓库的一部分）
+/antenna-repo/
+/.ref-hds/
+/.ref-yunshang/
+
+# Harmony/DevEco 构建产物与依赖
+node_modules/
+oh_modules/
+.hvigor/
+**/build/
+**/.test/
+**/.cxx/
+/.appanalyzer/
+.idea/
+.vscode/
+local.properties
+*.hap
+*.hsp
+*.har
+oh-package-lock.json5
+
+# 本地取证与备份（体积大，不入库）
+/.shots/
+/.backups/
+/.local-backups/
+/.cache/
+
+# 签名与密钥（绝不入库）
+*.p12
+*.cer
+*.p7b
+*.csr
+*.jks
+*.keystore
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.tmp
+*.log
+/remote/
+.dsh-hdc/
+.dsh-out/
+.dsh-hvigor-tmp/
+**/.dsh-hvigor-tmp/
+
+# 个人订阅清单（OPML 导入/导出），含真实订阅列表，勿提交
+/*.opml
+**/*.opml
+
+# 逐轮工作流水（本地保留，不随公开仓库发布）
+/STATUS.md
+/docs/progress-log.md
+/docs/emulator-e2e-session.md
+/docs/device-test-report.md
+/docs/e2e-report.md
+/docs/quality-audit.md
+/docs/toolchain-blocker.md
+/docs/feature-gap.md
+/docs/feature-matrix.md
+/docs/HANDOFF.md
+/docs/feature-diff/05-fix-verification.md
+/antennapod-harmony/CHANGELOG.md

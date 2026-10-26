@@ -1,0 +1,30 @@
+{
+    "src":  [
+                "pages/Index",
+                "pages/LegalPage",
+                "pages/FontSettingsPage",
+                "pages/QueuePage",
+                "pages/AddFeedPage",
+                "pages/FeedDetailPage",
+                "pages/EpisodeDetailPage",
+                "pages/FeedSettingsPage",
+                "pages/PlayerPage",
+    "pages/TranscriptPage",
+    "pages/TranscriptionSettingsPage",
+                "pages/SearchPage",
+                "pages/OpmlPage",
+                "pages/ImportExportPage",
+                "pages/FavoritesPage",
+                "pages/StoragePage",
+                "pages/HistoryPage",
+                "pages/StatsPage",
+                "pages/InboxPage",
+                "pages/DownloadsPage",
+                "pages/SettingsPage",
+                "pages/EpisodesPage",
+                "pages/AboutPage",
+                "pages/CategoryPage",
+                "pages/ChartsPage",
+                "pages/EditHomeSectionsPage"
+            ]
+}

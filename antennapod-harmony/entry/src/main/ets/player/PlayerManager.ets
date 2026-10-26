@@ -1,0 +1,931 @@
+// Port of: playback/service/internal/{ExoPlayerWrapper,LocalPSMP}.java -> AVPlayer 封装
+import { media } from '@kit.MediaKit';
+import { audio } from '@kit.AudioKit';
+import fs from '@ohos.file.fs';
+import { Playable } from '../model/Playable';
+import { UserPreferences } from '../prefs/UserPreferences';
+import { Logger } from '../utils/Logger';
+import { BackgroundPlaybackGuard } from './BackgroundPlaybackGuard';
+import { DeviceClasses, DeviceChangeReasons, OutputDevicePolicy } from './OutputDevicePolicy';
+import { EventHub, EventType, PlaybackPositionData, PlayerErrorData, SpeedChangedData, PlayerStatusData, PlayerTrackData } from '../events/EventHub';
+
+const TAG: string = 'PlayerManager';
+
+export class PlayerStatus {
+  static readonly IDLE: string = 'IDLE';
+  static readonly INITIALIZING: string = 'INITIALIZING';
+  static readonly PREPARING: string = 'PREPARING';
+  static readonly PREPARED: string = 'PREPARED';
+  static readonly PLAYING: string = 'PLAYING';
+  static readonly PAUSED: string = 'PAUSED';
+  static readonly COMPLETED: string = 'COMPLETED';
+  static readonly ERROR: string = 'ERROR';
+}
+
+/** 自动回退阈值（上游：暂停 >1 分钟回退 3s、>1 小时 10s、>1 天 20s，不可配置） */
+const REWIND_MINUTE_MS: number = 60 * 1000;
+const REWIND_HOUR_MS: number = 60 * 60 * 1000;
+const REWIND_DAY_MS: number = 24 * 60 * 60 * 1000;
+
+/**
+ * 最近一次「系统侧」暂停的原因。它决定**什么事件**可以把播放重新拉起来：
+ * 只有音频焦点恢复走 prefAutoResumeAfterInterrupt，只有设备重连走
+ * prefUnpauseOnHeadsetReconnect / prefUnpauseOnBluetoothReconnect；
+ * 用户手动暂停（含睡眠定时器、播控中心暂停）不在此列。
+ */
+const PAUSE_CAUSE_NONE: string = 'NONE';
+/** 音频焦点被抢占（来电 / 其它应用开始播放） */
+const PAUSE_CAUSE_INTERRUPT: string = 'INTERRUPT';
+/** 输出设备丢失（耳机拔出 / 蓝牙断开 / 佩戴检测摘下） */
+const PAUSE_CAUSE_DEVICE: string = 'DEVICE';
+
+export class PlayerManager {
+  private static player: media.AVPlayer | undefined = undefined;
+  private static current: Playable | undefined = undefined;
+  private static status: string = PlayerStatus.IDLE;
+  private static speed: number = 1.0;
+  /** 最近一次「请求」的倍速（feed 级 / 全局默认 / 用户点选 / 系统播控下发的原始倍率） */
+  private static intendedSpeed: number = 1.0;
+  /**
+   * `speedDone` 上报的**实际生效**档位（media.PlaybackSpeed 枚举值，-1 = 尚未收到）。
+   *
+   * 这是唯一可信的「倍速到底生效没有」的依据：`player.setSpeed()` 是异步的，
+   * 且本地 fd 路径上若调用时机过早会被丢掉 —— 不校验的话，界面显示 1.50x / 实际播 1.00x
+   * 这种「下载的单集自己变慢」就完全看不见（第 56 轮加）。
+   */
+  private static effectiveSpeedMode: number = -1;
+  /** 本次请求是否已经补发过一次，避免上报值一直对不上时无限重发 */
+  private static speedRetried: boolean = false;
+  private static volume: number = 1.0;
+  private static pausedAt: number = 0;
+  private static skipEndingFired: boolean = false;
+  /**
+   * 播放意图（对照 ExoPlayer 的 playWhenReady）：true = 用户本意是在播放。
+   *
+   * 耳机拔出时**底层可能已经自行停顿**（状态先变成 paused，`stateChange` 早于设备变更回调到达），
+   * 只看 `status` 就会把「本该恢复」误判成「用户自己停的」，所以意图单独记一份。
+   */
+  private static playIntent: boolean = false;
+  /** 最近一次系统侧暂停的原因（PAUSE_CAUSE_*） */
+  private static pauseCause: string = PAUSE_CAUSE_NONE;
+  /**
+   * 最近一次已知的「本音频流输出设备」类别（DeviceClasses.*）：
+   * 播放开始时用 `getPreferredOutputDeviceForRendererInfoSync` 采样一份，之后每次设备变更事件后更新。
+   *
+   * 用途只有一个：设备丢失事件带回的 `devices` 是**变更之后**的列表（蓝牙断开后只剩扬声器），
+   * 靠它才答得出「这次下线的到底是不是蓝牙」—— 见 OutputDevicePolicy.isBluetoothLoss。
+   */
+  private static activeOutputClasses: string[] = [];
+  /** 本地文件播放时保持打开的 fd（AVPlayer 走 fdSrc，播放期间不能关闭） */
+  private static localFile: fs.File | undefined = undefined;
+
+  /** API 12 可用的倍速档位（3.0x 需 API 13，未纳入） */
+  static readonly SPEED_PRESETS: number[] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
+  private static boundStateChange: (state: media.AVPlayerState, reason: media.StateChangeReason) => void =
+    (state: media.AVPlayerState, reason: media.StateChangeReason): void => {
+      PlayerManager.handleStateChange(state, reason);
+    };
+  private static boundTimeUpdate: (time: number) => void = (time: number): void => {
+    PlayerManager.handleTimeUpdate(time);
+  };
+  private static boundError: (error: Error) => void = (error: Error): void => {
+    Logger.error(TAG, 'AVPlayer error', error);
+    PlayerManager.status = PlayerStatus.ERROR;
+    PlayerManager.stopBackgroundTask();
+    const errorData: PlayerErrorData = { code: 0, message: error.message };
+    EventHub.publish(EventType.PLAYER_ERROR, errorData);
+  };
+  private static boundInterrupt: (info: audio.InterruptEvent) => void =
+    (info: audio.InterruptEvent): void => {
+      PlayerManager.handleAudioInterrupt(info);
+    };
+  private static boundOutputDeviceChange: (info: audio.AudioStreamDeviceChangeInfo) => void =
+    (info: audio.AudioStreamDeviceChangeInfo): void => {
+      PlayerManager.handleOutputDeviceChange(info);
+    };
+  private static boundSpeedDone: (mode: number) => void = (mode: number): void => {
+    PlayerManager.handleSpeedDone(mode);
+  };
+
+  /** 播放位置事件的发布间隔（见 handleTimeUpdate） */
+  private static readonly POSITION_PUBLISH_INTERVAL_MS: number = 500;
+  private static lastPositionPublishAt: number = 0;
+
+  static async load(playable: Playable, startPosition: number, autoplay: boolean): Promise<void> {
+    await PlayerManager.release();
+    PlayerManager.current = playable;
+    // 记住「上次播放的单集」，供冷启动时恢复迷你播放器（见 restoreLastPlayed）。
+    // 预览（未入库）单集的 id 是负数，不写这条偏好，避免冷启动去查一条不存在的记录。
+    if (playable.id > 0) {
+      UserPreferences.setLastPlayedFeedMediaId(playable.id);
+    }
+    PlayerManager.status = PlayerStatus.INITIALIZING;
+    // 换集必须清掉上一集残留的「待确认跳转位置」：
+    // 否则新单集从 0 秒开始播放，界面却先显示上一集拖到的位置（例如 1:11）。
+    PlayerManager.pendingSeekMs = -1;
+    PlayerManager.pendingSeekMissCount = 0;
+    PlayerManager.skipEndingFired = false;
+    PlayerManager.pausedAt = 0;
+    PlayerManager.playIntent = false;
+    PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+    // 换集：上一集的倍速校验结果作废
+    PlayerManager.effectiveSpeedMode = -1;
+    PlayerManager.speedRetried = false;
+    // 通知播控中心换集（AVSession 元数据必须在 prepare 前就更新，否则通知栏卡片还是上一集）
+    const trackData: PlayerTrackData = { assetId: playable.id };
+    EventHub.publish(EventType.PLAYER_TRACK_CHANGED, trackData);
+    const player: media.AVPlayer = await media.createAVPlayer();
+    PlayerManager.player = player;
+    player.on('timeUpdate', PlayerManager.boundTimeUpdate);
+    player.on('error', PlayerManager.boundError);
+    player.on('audioInterrupt', PlayerManager.boundInterrupt);
+    // 倍速是否真的生效，只能看 speedDone（它回传实际生效档位）
+    player.on('speedDone', PlayerManager.boundSpeedDone);
+    // 输出设备变更（耳机拔出 / 蓝牙断开 / 重新接入）：官方指引要求
+    // REASON_OLD_DEVICE_UNAVAILABLE 时由应用自己暂停 —— 见 OutputDevicePolicy 注释
+    player.on('audioOutputDeviceChangeWithInfo', PlayerManager.boundOutputDeviceChange);
+    if (playable.localFileUrl !== '') {
+      // 已下载：AVPlayer 只接受 fd:// 或网络地址（file:// 与裸路径都会报
+      // "The input parameter is not fd:// or network address"），故走 fdSrc。
+      const file: fs.File = fs.openSync(playable.localFileUrl, fs.OpenMode.READ_ONLY);
+      PlayerManager.localFile = file;
+      player.fdSrc = { fd: file.fd };
+    } else {
+      player.url = playable.downloadUrl;
+    }
+    const initialized: boolean = await PlayerManager.waitForState(player, 'initialized', 30000);
+    if (!initialized) {
+      throw new Error('AVPlayer url 初始化超时: ' + playable.getSourceUrl());
+    }
+    PlayerManager.status = PlayerStatus.PREPARING;
+    await player.prepare();
+    PlayerManager.status = PlayerStatus.PREPARED;
+    // 在 waitForState 之后再注册全局状态监听：
+    // waitForState 内部会 off('stateChange', handler)，若提前注册会被一并移除，
+    // 导致 status 永远停留在 PREPARED。
+    player.on('stateChange', PlayerManager.boundStateChange);
+    // 每 Feed 音量适配（0=未设置；AVPlayer 无 >1.0 增益，增强档 clamp 到 1.0）
+    if (playable.volumeAdaption > 0) {
+      PlayerManager.setVolume(playable.volumeAdaption);
+    } else {
+      PlayerManager.setVolume(1.0);
+    }
+    let target: number = startPosition > 0 ? startPosition : 0;
+    // 跳片头：起始位置仍在片头区间内则直接跳到片头结束
+    if (playable.skipIntro > 0) {
+      const introMs: number = playable.skipIntro * 1000;
+      if (target < introMs) {
+        target = introMs;
+        Logger.info(TAG, 'skip intro -> ' + introMs);
+      }
+    }
+    if (target > 0) {
+      PlayerManager.seek(target);
+    } else {
+      // 从头播放：不要留下任何「待确认位置」
+      PlayerManager.pendingSeekMs = -1;
+    }
+    if (playable.speed > 0 && playable.speed !== 1.0) {
+      PlayerManager.setSpeed(playable.speed, 'load:feed');
+    } else {
+      // 无 Feed 级倍速时用用户默认倍速：否则播放页设过的倍速会在下次 prepare（如单集循环）被打回 1.0
+      PlayerManager.setSpeed(UserPreferences.getDefaultPlaybackSpeed(), 'load:global');
+    }
+    if (autoplay) {
+      // 不能只 fire-and-forget：prepare 刚完成时 play() 有概率被状态机吞掉，
+      // 表现就是「详情页点了在线播放，播放条出现了但没声音，进播放页再点才播」。
+      await PlayerManager.ensurePlaying();
+    }
+  }
+
+  /**
+   * 确保真的开始播放：调用 play()，并在最多 ~2.4s 内等待 AVPlayer 真正进入 playing。
+   * 仍未进入时再补发一次 play()（覆盖 prepare→play 的竞态与音频焦点恢复延迟）。
+   *
+   * 详情页与播放页都走这个方法，两边点「播放」的行为因此完全一致。
+   */
+  static async ensurePlaying(): Promise<boolean> {
+    if (PlayerManager.status === PlayerStatus.PLAYING && PlayerManager.player !== undefined
+      && PlayerManager.player.state === 'playing') {
+      return true;
+    }
+    await PlayerManager.play();
+    let playing: boolean = await PlayerManager.waitPlaying(1200);
+    if (!playing) {
+      const player: media.AVPlayer | undefined = PlayerManager.player;
+      if (player !== undefined && (player.state === 'prepared' || player.state === 'paused'
+        || player.state === 'completed')) {
+        Logger.warn(TAG, 'ensurePlaying: still not playing after first attempt, retry');
+        await PlayerManager.play();
+        playing = await PlayerManager.waitPlaying(1200);
+      }
+    }
+    return playing;
+  }
+
+  /** 等待 AVPlayer 进入 playing（轮询，避免依赖一次性事件） */
+  private static waitPlaying(timeoutMs: number): Promise<boolean> {
+    const start: number = Date.now();
+    return new Promise<boolean>((resolve) => {
+      const tick = (): void => {
+        const player: media.AVPlayer | undefined = PlayerManager.player;
+        if (player !== undefined && player.state === 'playing') {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - start >= timeoutMs) {
+          resolve(false);
+          return;
+        }
+        setTimeout(tick, 100);
+      };
+      tick();
+    });
+  }
+
+  private static waitForState(player: media.AVPlayer, target: media.AVPlayerState, timeoutMs: number): Promise<boolean> {
+    if (player.state === target) {
+      return new Promise<boolean>((resolve) => resolve(true));
+    }
+    return new Promise<boolean>((resolve) => {
+      let settled: boolean = false;
+      let timerId: number = -1;
+      const handler = (state: media.AVPlayerState, reason: media.StateChangeReason): void => {
+        if (state === target) {
+          if (!settled) {
+            settled = true;
+            player.off('stateChange', handler);
+            clearTimeout(timerId);
+            resolve(true);
+          }
+        } else if (state === 'error') {
+          if (!settled) {
+            settled = true;
+            player.off('stateChange', handler);
+            clearTimeout(timerId);
+            resolve(false);
+          }
+        }
+      };
+      player.on('stateChange', handler);
+      timerId = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          player.off('stateChange', handler);
+          resolve(false);
+        }
+      }, timeoutMs);
+    });
+  }
+
+  static async play(): Promise<void> {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player === undefined) {
+      // 冷启动由 restoreLastPlayed() 恢复出来的「上次播放」只有当前项、没有真实播放器。
+      // 这时按播放不能什么都不做：补一次真正的加载（load 末尾会自己调 play）。
+      const restored: Playable | undefined = PlayerManager.current;
+      if (restored !== undefined) {
+        // 冷启动时用户可能已经拖过进度条（只记在 pendingSeekMs 里）：
+        // 必须用它作为起点，否则点播放会跳回「上次保存的位置」，把拖动结果丢掉。
+        const startPosition: number = PlayerManager.pendingSeekMs >= 0
+          ? PlayerManager.pendingSeekMs : restored.position;
+        await PlayerManager.load(restored, startPosition, true);
+      }
+      return;
+    }
+    if (player !== undefined && (player.state === 'prepared' || player.state === 'paused' || player.state === 'completed')) {
+      PlayerManager.applyAutoRewind();
+      // 主动播放：意图置真，并清掉上一次系统侧暂停的原因（用户接管了播放）
+      PlayerManager.playIntent = true;
+      PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+      // 记下「这次开播时用的是哪类输出设备」：以后设备丢失事件才知道下线的是什么（见 activeOutputClasses）
+      PlayerManager.refreshOutputClasses();
+      await player.play();
+      // 长时任务必须在真正开始播放后启动：否则后台/锁屏会被系统冻结
+      PlayerManager.startBackgroundTask();
+    }
+  }
+
+  /**
+   * 采样「本音频流此刻用的输出设备」，覆盖 {@link activeOutputClasses}。
+   *
+   * 用 `AudioRoutingManager.getPreferredOutputDeviceForRendererInfoSync`（API 10+）：
+   * 它按 `AudioRendererInfo.usage` 取**本场景**（媒体播放）的输出设备，是流/场景级查询；
+   * 不用同名的全局 `deviceChange` 事件 —— 官方 FAQ 明确它监听的是全局设备连接状态、
+   * 不与音频流绑定，不能作为自动暂停之类判断的依据。
+   *
+   * 查询失败时**保留上一次的记录**（宁可漏一次回退，也不要在拔有线耳机时误回退）。
+   */
+  private static refreshOutputClasses(): void {
+    try {
+      const devices: audio.AudioDeviceDescriptors = audio.getAudioManager()
+        .getRoutingManager().getPreferredOutputDeviceForRendererInfoSync(PlayerManager.rendererInfo());
+      const classes: string[] = PlayerManager.toDeviceClasses(devices);
+      if (classes.length > 0) {
+        PlayerManager.activeOutputClasses = classes;
+        Logger.info(TAG, 'output device sampled: [' + classes.join(',') + ']');
+      }
+    } catch (error) {
+      Logger.warn(TAG, 'query preferred output device failed: ' + (error as Error).message);
+    }
+  }
+
+  /** 查询用的渲染信息：优先用播放器自己的，未设置过则按默认的媒体播放场景（STREAM_USAGE_MUSIC） */
+  private static rendererInfo(): audio.AudioRendererInfo {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    const info: audio.AudioRendererInfo | undefined = player !== undefined ? player.audioRendererInfo : undefined;
+    if (info !== undefined) {
+      return info;
+    }
+    return { usage: audio.StreamUsage.STREAM_USAGE_MUSIC, rendererFlags: 0 };
+  }
+
+  /** 启动 AUDIO_PLAYBACK 长时任务（幂等；失败不阻断播放） */
+  private static startBackgroundTask(): void {
+    if (BackgroundPlaybackGuard.isRunning()) {
+      return;
+    }
+    BackgroundPlaybackGuard.start().catch((error: Error) => {
+      Logger.warn(TAG, 'startBackgroundRunning failed: ' + error.message);
+    });
+  }
+
+  /** 停止长时任务（释放播放器 / 播放错误时调用） */
+  private static stopBackgroundTask(): void {
+    if (!BackgroundPlaybackGuard.isRunning()) {
+      return;
+    }
+    BackgroundPlaybackGuard.stop().catch((error: Error) => {
+      Logger.warn(TAG, 'stopBackgroundRunning failed: ' + error.message);
+    });
+  }
+
+  /** 暂停后回退：暂停 >1 分钟 3s、>1 小时 10s、>1 天 20s */
+  private static applyAutoRewind(): void {
+    if (PlayerManager.pausedAt <= 0) {
+      return;
+    }
+    const pausedMs: number = Date.now() - PlayerManager.pausedAt;
+    PlayerManager.pausedAt = 0;
+    let backMs: number = 0;
+    if (pausedMs > REWIND_DAY_MS) {
+      backMs = 20000;
+    } else if (pausedMs > REWIND_HOUR_MS) {
+      backMs = 10000;
+    } else if (pausedMs > REWIND_MINUTE_MS) {
+      backMs = 3000;
+    }
+    if (backMs > 0) {
+      const target: number = Math.max(0, PlayerManager.getCurrentTime() - backMs);
+      Logger.info(TAG, 'auto rewind ' + backMs + 'ms after pause ' + pausedMs + 'ms');
+      PlayerManager.seek(target);
+    }
+  }
+
+  static async pause(): Promise<void> {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    // 不管底层停没停，意图都要清掉：这是一次「用户/系统要求静音」的暂停
+    PlayerManager.playIntent = false;
+    if (player === undefined) {
+      return;
+    }
+    if (player.state === 'playing' || player.state === 'prepared') {
+      PlayerManager.pausedAt = Date.now();
+      try {
+        await player.pause();
+      } catch (error) {
+        Logger.warn(TAG, 'pause failed: ' + (error as Error).message);
+      }
+    }
+    // 关键：以 pause() 之后 AVPlayer 的**真实状态**回写应用状态并广播。
+    // 之前只依赖 stateChange 事件，一旦事件没来（或播放器侧还在 playing），
+    // 界面就会停在旧值 —— 表现就是「点了暂停，图标变成播放，但声音还在响」。
+    const actual: string = player.state;
+    if (actual === 'playing') {
+      PlayerManager.status = PlayerStatus.PLAYING;
+    } else if (actual === 'paused' || actual === 'prepared') {
+      PlayerManager.status = PlayerStatus.PAUSED;
+    } else {
+      return;
+    }
+    const statusData: PlayerStatusData = { status: PlayerManager.status };
+    EventHub.publish(EventType.PLAYER_STATUS, statusData);
+  }
+
+  /**
+   * 设备丢失（耳机拔出 / 蓝牙断开）造成的停顿。
+   *
+   * 与 `pause()` 的区别：底层可能**已经**因设备下线自行停顿（这时 `player.pause()` 是空操作、
+   * `stateChange` 也不会再来），所以这里额外把应用侧状态与播控中心显式收敛成 PAUSED，
+   * 避免播放页 / 通知卡片停在「播放中」；同时保留 `pauseCause = DEVICE`，
+   * 让设备重新接入时能按偏好恢复。
+   *
+   * @param rewindMs 蓝牙断开的补偿回退量（0 = 不回退）：蓝牙掉线到本事件到达之间有一段延迟，
+   *                 这段延迟里音频可能已经改从扬声器外放或干脆被跳过，回退几秒让用户不漏内容。
+   */
+  private static async pauseForDeviceLoss(rewindMs: number): Promise<void> {
+    PlayerManager.playIntent = false;
+    PlayerManager.pausedAt = Date.now();
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player !== undefined && (player.state === 'playing' || player.state === 'prepared')) {
+      try {
+        await player.pause();
+      } catch (error) {
+        Logger.warn(TAG, 'pause on device loss failed: ' + (error as Error).message);
+      }
+    }
+    // 回退必须发生在暂停**之后**：蓝牙断开后音频多半已经改从扬声器外放，
+    // 先 seek 再暂停等于把这几秒重新放出来一遍（用户听到的是「重复的一段」而不是静音）。
+    if (rewindMs > 0) {
+      PlayerManager.rewindAfterDeviceLoss(rewindMs);
+    }
+    if (PlayerManager.status === PlayerStatus.PLAYING || PlayerManager.status === PlayerStatus.PREPARED) {
+      PlayerManager.status = PlayerStatus.PAUSED;
+      const statusData: PlayerStatusData = { status: PlayerManager.status };
+      EventHub.publish(EventType.PLAYER_STATUS, statusData);
+    }
+  }
+
+  /**
+   * 蓝牙断开补偿回退：把进度往回调一段。
+   *
+   * 位置以「暂停那一刻」为基准：延迟期间真的播掉的那些内容正是用户没听到（或只从扬声器
+   * 听到一句）的部分，回退之后重连继续播不会漏内容。
+   */
+  private static rewindAfterDeviceLoss(rewindMs: number): void {
+    const position: number = PlayerManager.getCurrentTime();
+    const target: number = OutputDevicePolicy.rewindPositionMs(position, rewindMs);
+    Logger.info(TAG, 'bluetooth lost: rewind ' + rewindMs + 'ms from ' + position + ' -> ' + target);
+    PlayerManager.seek(target);
+    // 暂停后不再有 timeUpdate，5s 节流的周期保存不会再把新位置写库：
+    // 不带位置地补一次强制落盘会读到 seek 未生效前的旧值，所以把目标位置一并广播出去，
+    // 由 PlaybackOrchestrator 转交 ProgressPersister（PlayerManager 不直接依赖它，避免循环依赖）。
+    const positionData: PlaybackPositionData = { time: target, duration: PlayerManager.getDuration() };
+    EventHub.publish(EventType.PLAYBACK_SEEKED, positionData);
+  }
+
+  /**
+   * 跳转播放位置。
+   *
+   * 暂停状态下 AVPlayer 不一定立即回传 currentTime，界面如果只读 player.currentTime，
+   * 进度条会在松手后「弹回原位」，看起来像暂停时无法拖动。
+   * 这里在应用侧记住目标位置，等下一次 timeUpdate（真正跳转完成后）再交还给播放器。
+   */
+  static seek(timeMs: number): void {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player === undefined) {
+      return;
+    }
+    const duration: number = PlayerManager.getDuration();
+    const target: number = duration > 0 ? Math.max(0, Math.min(duration, timeMs)) : Math.max(0, timeMs);
+    PlayerManager.pendingSeekMs = target;
+    PlayerManager.pendingSeekMissCount = 0;
+    player.seek(target, media.SeekMode.SEEK_PREV_SYNC);
+    // 立刻广播一次，让播放页 / 迷你播放条 / 其它订阅方同步到新位置
+    PlayerManager.lastPositionPublishAt = Date.now();
+    const data: PlaybackPositionData = { time: target, duration: duration };
+    EventHub.publish(EventType.PLAYBACK_POSITION, data);
+  }
+
+  /** 应用侧待确认的跳转位置（-1 = 无） */
+  private static pendingSeekMs: number = -1;
+  /**
+   * 真实位置与「待确认位置」连续不符的次数。
+   * 某些流（如境外长音频）会忽略 prepare 后的首个 seek：这时 pendingSeekMs 永远等不到匹配值，
+   * 而 getCurrentTime() 会一直返回它 —— 于是「事件给真实 0/1/2 秒、定时器给旧值 71 秒」
+   * 交替刷新，进度条就来回跳。累计几次不一致后强制丢弃即可。
+   */
+  private static pendingSeekMissCount: number = 0;
+
+  static seekBy(deltaMs: number): void {
+    const current: number = PlayerManager.getCurrentTime();
+    const target: number = Math.max(0, current + deltaMs);
+    PlayerManager.seek(target);
+  }
+
+  /**
+   * 设置倍速。`source` 只用于日志归因（load:feed / load:global / player-page / avsession / smoke）。
+   *
+   * 注意这里**先无条件更新应用侧状态**再下发：以前 `player === undefined` 时直接 return，
+   * 会出现「偏好已经写进去了、界面数字却没变」，看上去像倍速自己变了。
+   * 是否真的生效由 {@link handleSpeedDone} 校验。
+   */
+  static setSpeed(speed: number, source: string = 'unknown'): void {
+    PlayerManager.intendedSpeed = speed;
+    PlayerManager.speed = speed;
+    PlayerManager.speedRetried = false;
+    PlayerManager.applySpeedToPlayer(speed, source);
+    const speedData: SpeedChangedData = { speed: speed };
+    EventHub.publish(EventType.SPEED_CHANGED, speedData);
+  }
+
+  /** 下发倍速到 AVPlayer（异常/播放器缺失只记日志，不打断调用方） */
+  private static applySpeedToPlayer(speed: number, source: string): void {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player === undefined) {
+      Logger.warn(TAG, 'setSpeed skipped (no player) src=' + source + ' request=' + speed);
+      return;
+    }
+    const mode: media.PlaybackSpeed = PlayerManager.toPlaybackSpeed(speed);
+    Logger.info(TAG, 'setSpeed src=' + source + ' request=' + speed + ' mode=' + mode
+      + ' state=' + player.state);
+    try {
+      player.setSpeed(mode);
+    } catch (error) {
+      Logger.error(TAG, 'setSpeed failed request=' + speed + ' mode=' + mode, error as Error);
+    }
+  }
+
+  /**
+   * `speedDone`：`setSpeed()` 每次调用都会回调，带回**实际生效**的档位。
+   *
+   * 与请求值不一致时补发一次（自愈）：本地 fd 播放时 `prepare()` 几乎立刻返回，
+   * `setSpeed` 落在首帧之前有被丢掉的可能 —— 那正是「下载的单集自己变慢」的候选根因。
+   */
+  private static handleSpeedDone(mode: number): void {
+    PlayerManager.effectiveSpeedMode = mode;
+    const expected: number = PlayerManager.toPlaybackSpeed(PlayerManager.intendedSpeed);
+    Logger.info(TAG, 'speedDone effective=' + mode + ' expected=' + expected
+      + ' intended=' + PlayerManager.intendedSpeed);
+    if (mode === expected || PlayerManager.speedRetried) {
+      return;
+    }
+    PlayerManager.speedRetried = true;
+    Logger.warn(TAG, 'speed not effective (' + mode + ' != ' + expected + '), retry '
+      + PlayerManager.intendedSpeed);
+    PlayerManager.applySpeedToPlayer(PlayerManager.intendedSpeed, 'retry');
+  }
+
+  /** 倍速档位映射（API 12 能力集；非档位值就近取档） */
+  static toPlaybackSpeed(speed: number): media.PlaybackSpeed {
+    if (speed <= 0.5) {
+      return media.PlaybackSpeed.SPEED_FORWARD_0_50_X;
+    }
+    if (speed <= 0.75) {
+      return media.PlaybackSpeed.SPEED_FORWARD_0_75_X;
+    }
+    if (speed <= 1.0) {
+      return media.PlaybackSpeed.SPEED_FORWARD_1_00_X;
+    }
+    if (speed <= 1.25) {
+      return media.PlaybackSpeed.SPEED_FORWARD_1_25_X;
+    }
+    if (speed <= 1.5) {
+      return media.PlaybackSpeed.SPEED_FORWARD_1_50_X;
+    }
+    if (speed <= 1.75) {
+      return media.PlaybackSpeed.SPEED_FORWARD_1_75_X;
+    }
+    return media.PlaybackSpeed.SPEED_FORWARD_2_00_X;
+  }
+
+  /** 音量适配：AVPlayer 仅支持 0..1，超过 1 的增强请求被 clamp 并记录 */
+  static setVolume(volume: number): void {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player === undefined) {
+      return;
+    }
+    let value: number = volume;
+    if (value > 1.0) {
+      Logger.info(TAG, 'volume adaption ' + volume + ' clamped to 1.0 (AVPlayer 无增益能力)');
+      value = 1.0;
+    }
+    if (value < 0) {
+      value = 0;
+    }
+    PlayerManager.volume = value;
+    try {
+      player.setVolume(value);
+    } catch (error) {
+      Logger.warn(TAG, 'setVolume failed: ' + (error as Error).message);
+    }
+  }
+
+  static getVolume(): number {
+    return PlayerManager.volume;
+  }
+
+  static getCurrentTime(): number {
+    if (PlayerManager.pendingSeekMs >= 0) {
+      return PlayerManager.pendingSeekMs;
+    }
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player === undefined) {
+      return 0;
+    }
+    return player.currentTime;
+  }
+
+  static getDuration(): number {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player === undefined) {
+      return 0;
+    }
+    const duration: number = player.duration;
+    return duration > 0 ? duration : (PlayerManager.current !== undefined ? PlayerManager.current.duration : 0);
+  }
+
+  /**
+   * 冷启动恢复「上次播放的单集」。
+   *
+   * 只把当前项与状态摆成 PAUSED，**不创建 AVPlayer、不发声**：
+   * 目的是让迷你播放器重新出现（它按 PLAYER_STATUS 决定显隐），
+   * 用户点播放时再走正常的 `load()` 流程。
+   *
+   * 已有 current 时直接返回：热重启/页面重建不会把正在播放的项覆盖成暂停态。
+   */
+  static restoreLastPlayed(playable: Playable | undefined): void {
+    if (playable === undefined || PlayerManager.current !== undefined) {
+      return;
+    }
+    PlayerManager.current = playable;
+    PlayerManager.status = PlayerStatus.PAUSED;
+    PlayerManager.playIntent = false;
+    // 冷启动时没有真实 AVPlayer，player.currentTime 恒为 0；
+    // 把上次的播放位置记为「待确认位置」，这样播放页进度条/时间一进来就显示上次听到的位置，
+    // 而不是先显示 0:00、等用户点播放才跳到保存位置。
+    if (playable.position > 0) {
+      PlayerManager.pendingSeekMs = playable.position;
+    }
+    const statusData: PlayerStatusData = { status: PlayerStatus.PAUSED };
+    EventHub.publish(EventType.PLAYER_STATUS, statusData);
+  }
+  static getStatus(): string {
+    return PlayerManager.status;
+  }
+
+  static getCurrent(): Playable | undefined {
+    return PlayerManager.current;
+  }
+
+  static getSpeed(): number {
+    return PlayerManager.speed;
+  }
+
+  static async release(): Promise<void> {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player !== undefined) {
+      player.off('stateChange');
+      player.off('timeUpdate');
+      player.off('error');
+      player.off('audioInterrupt');
+      player.off('audioOutputDeviceChangeWithInfo');
+      player.off('speedDone');
+      await player.release();
+    }
+    PlayerManager.player = undefined;
+    if (PlayerManager.localFile !== undefined) {
+      // 必须在 player.release() 之后再关闭 fd
+      try {
+        fs.closeSync(PlayerManager.localFile);
+      } catch (error) {
+        // 已关闭则忽略
+      }
+      PlayerManager.localFile = undefined;
+    }
+    PlayerManager.status = PlayerStatus.IDLE;
+    PlayerManager.skipEndingFired = false;
+    PlayerManager.playIntent = false;
+    PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+    PlayerManager.effectiveSpeedMode = -1;
+    PlayerManager.speedRetried = false;
+    PlayerManager.stopBackgroundTask();
+    const idleStatus: PlayerStatusData = { status: PlayerManager.status };
+    EventHub.publish(EventType.PLAYER_STATUS, idleStatus);
+  }
+
+  private static handleTimeUpdate(time: number): void {
+    if (PlayerManager.pendingSeekMs >= 0) {
+      // 播放器已在回传新位置（含暂停后 seek 触发的 seekDone），交还真实值
+      if (Math.abs(time - PlayerManager.pendingSeekMs) <= 1500) {
+        PlayerManager.pendingSeekMs = -1;
+        PlayerManager.pendingSeekMissCount = 0;
+      } else {
+        PlayerManager.pendingSeekMissCount++;
+        // 连续 4 次（约 2 秒）都不匹配 → 说明这次 seek 被底层忽略了，丢弃旧值
+        if (PlayerManager.pendingSeekMissCount >= 4) {
+          Logger.warn(TAG, 'pending seek ignored by player (wanted ' + PlayerManager.pendingSeekMs
+            + ', actual ' + time + '), drop it');
+          PlayerManager.pendingSeekMs = -1;
+          PlayerManager.pendingSeekMissCount = 0;
+        }
+      }
+    }
+    // 跳片尾必须每 tick 都判断，不能被下面的节流挡住
+    PlayerManager.maybeSkipEnding(time);
+    // AVPlayer 的 timeUpdate 约 100ms 一次。进度展示不需要 10Hz：
+    // 首页 / 收件箱 / 下载 / 队列 都订阅了这个事件并更新 @State，
+    // 播放时每秒被重建约 10 次，滚动就会明显掉帧。这里节流到约 500ms 一次。
+    const now: number = Date.now();
+    if (now - PlayerManager.lastPositionPublishAt < PlayerManager.POSITION_PUBLISH_INTERVAL_MS) {
+      return;
+    }
+    PlayerManager.lastPositionPublishAt = now;
+    const positionData: PlaybackPositionData = { time: time, duration: PlayerManager.getDuration() };
+    EventHub.publish(EventType.PLAYBACK_POSITION, positionData);
+  }
+
+  /** 跳片尾：接近结尾时跳到底，由系统走 completed 流程（每集只触发一次） */
+  private static maybeSkipEnding(time: number): void {
+    const playable: Playable | undefined = PlayerManager.current;
+    if (playable === undefined || playable.skipEnding <= 0 || PlayerManager.skipEndingFired) {
+      return;
+    }
+    const duration: number = PlayerManager.getDuration();
+    if (duration <= 0) {
+      return;
+    }
+    if (duration - time <= playable.skipEnding * 1000) {
+      PlayerManager.skipEndingFired = true;
+      Logger.info(TAG, 'skip ending -> ' + duration);
+      PlayerManager.seek(duration);
+    }
+  }
+
+  /**
+   * 音频焦点中断（来电、其他应用抢占、部分场景下的耳机断开）：
+   * 系统强制暂停时记录原因；恢复提示时按 prefAutoResumeAfterInterrupt 自动继续播放。
+   *
+   * 注意与 {@link handleOutputDeviceChange} 的配合：耳机断开时系统**可能同时**发这条 PAUSE
+   * 中断，而两个回调的先后顺序不保证。设备丢失已经把原因记成 DEVICE 时不再改写，
+   * 否则之后蓝牙重连会走 `INTERRUPT_HINT_RESUME` 这条「焦点恢复」路径，
+   * 绕过「蓝牙重连默认不恢复」的偏好（默认值见 UserPreferences.isUnpauseOnBluetoothReconnect）。
+   */
+  private static handleAudioInterrupt(info: audio.InterruptEvent): void {
+    Logger.info(TAG, 'audioInterrupt hint=' + info.hintType + ' force=' + info.forceType);
+    if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_PAUSE
+      || info.hintType === audio.InterruptHint.INTERRUPT_HINT_STOP) {
+      // 只在「本来就在播」且不是设备丢失时，才记成一条「焦点恢复后可自动续播」的暂停：
+      // 用户自己按过暂停、或播放已结束时系统同样会发这条中断，此时不该在来电结束后把声音放出来
+      //（对照上游 PlaybackService：pausedBecauseOfFocusLoss 只在 isPlaying() 时置真）。
+      if (PlayerManager.playIntent && PlayerManager.pauseCause !== PAUSE_CAUSE_DEVICE) {
+        PlayerManager.pauseCause = PAUSE_CAUSE_INTERRUPT;
+      }
+      PlayerManager.pausedAt = Date.now();
+      PlayerManager.pause();
+    } else if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_RESUME) {
+      if (PlayerManager.pauseCause === PAUSE_CAUSE_INTERRUPT && UserPreferences.getAutoResumeAfterInterrupt()) {
+        PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+        PlayerManager.play();
+      }
+    } else if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_DUCK) {
+      PlayerManager.setVolume(0.3);
+    } else if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_UNDUCK) {
+      const playable: Playable | undefined = PlayerManager.current;
+      PlayerManager.setVolume(playable !== undefined && playable.volumeAdaption > 0 ? playable.volumeAdaption : 1.0);
+    }
+  }
+
+  /**
+   * 输出设备变更：**耳机拔出 / 蓝牙断开时自动暂停播放**的主路径。
+   *
+   * 为什么不能只靠 `audioInterrupt`：官方《响应输出设备变更时合理暂停》把设备下线的处理
+   * 交给应用自己 —— 系统只把「本音频流的输出设备变了、以及为什么变」通过
+   * `audioOutputDeviceChangeWithInfo` 交给应用，并不会代应用暂停；只有这条事件
+   * 才带得回 **是哪一类设备**（有线 / 蓝牙）下线或接入，从而决定重连后走哪条偏好。
+   *
+   * 对照上游：`PlaybackService.BecomingNoisyReceiver`（ACTION_AUDIO_BECOMING_NOISY → 暂停）
+   * + `prefUnpauseOnHeadsetReconnect` / `prefUnpauseOnBluetoothReconnect`（重连恢复）。
+   */
+  private static handleOutputDeviceChange(info: audio.AudioStreamDeviceChangeInfo): void {
+    if (info === undefined) {
+      return;
+    }
+    const reason: string = PlayerManager.toDeviceChangeReason(info.changeReason);
+    const classes: string[] = PlayerManager.toDeviceClasses(info.devices);
+    // `devices` 是**变更之后**的设备列表：先取走变更**之前**的那份记录，
+    // 再把它更新成本次变更后的结果（下一次设备丢失事件判「下线的是不是蓝牙」就靠它）
+    const previous: string[] = PlayerManager.activeOutputClasses;
+    if (classes.length > 0) {
+      PlayerManager.activeOutputClasses = classes;
+    }
+    Logger.info(TAG, 'outputDeviceChange reason=' + reason + ' devices=[' + classes.join(',') + ']'
+      + ' previous=[' + previous.join(',') + ']'
+      + ' status=' + PlayerManager.status + ' intent=' + PlayerManager.playIntent
+      + ' cause=' + PlayerManager.pauseCause);
+
+    if (reason === DeviceChangeReasons.LOST) {
+      const pauseEnabled: boolean = UserPreferences.isPauseOnHeadsetDisconnect();
+      // 顺序无关：设备事件与焦点中断谁先到，结论都必须一样。
+      // 焦点中断先到时 pause() 已把 playIntent 清成 false，只看它就会漏掉本次设备丢失，
+      // 让原因停在 INTERRUPT —— 之后焦点恢复会把声音从扬声器放出来。
+      const interrupted: boolean = OutputDevicePolicy.wasPlaybackInterrupted(
+        PlayerManager.playIntent, PlayerManager.pauseCause === PAUSE_CAUSE_INTERRUPT);
+      if (!OutputDevicePolicy.shouldPauseOnDeviceLost(interrupted, pauseEnabled)) {
+        Logger.info(TAG, 'device lost: no pause (intent=' + PlayerManager.playIntent + ' enabled=' + pauseEnabled + ')');
+        return;
+      }
+      // 蓝牙断开补偿回退（移植版独有）：只有确认下线的是蓝牙才回退，拔有线耳机不动（见 OutputDevicePolicy）
+      const bluetoothLost: boolean = OutputDevicePolicy.isBluetoothLoss(previous, classes);
+      const rewindMs: number = OutputDevicePolicy.rewindMillisOnBluetoothLoss(bluetoothLost,
+        UserPreferences.isRewindOnBluetoothDisconnect(), UserPreferences.getBluetoothDisconnectRewindSecs());
+      Logger.info(TAG, 'device lost: bluetoothLost=' + bluetoothLost + ' rewind=' + rewindMs + 'ms');
+      PlayerManager.pauseCause = PAUSE_CAUSE_DEVICE;
+      PlayerManager.pauseForDeviceLoss(rewindMs).catch((error: Error) => {
+        Logger.warn(TAG, 'pauseForDeviceLoss failed: ' + error.message);
+      });
+      return;
+    }
+
+    if (reason === DeviceChangeReasons.AVAILABLE) {
+      const resume: boolean = OutputDevicePolicy.shouldResumeOnDeviceAvailable(
+        classes, PlayerManager.pauseCause === PAUSE_CAUSE_DEVICE,
+        UserPreferences.isUnpauseOnHeadsetReconnect(), UserPreferences.isUnpauseOnBluetoothReconnect());
+      if (resume) {
+        Logger.info(TAG, 'device available: resume playback');
+        // 先清原因再播：play() 若因底层状态不可播而空转，也不该把这个「恢复机会」留给下一次插拔
+        PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+        PlayerManager.play();
+      }
+      return;
+    }
+
+    if (reason === DeviceChangeReasons.OVERRODE) {
+      // 用户在播控中心强选了输出设备：既不算设备丢失，也不该保留「等重连恢复」的意图
+      PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+    }
+  }
+
+  /** audio.AudioStreamDeviceChangeReason -> 策略层的抽象原因（见 OutputDevicePolicy） */
+  private static toDeviceChangeReason(reason: audio.AudioStreamDeviceChangeReason): string {
+    if (reason === audio.AudioStreamDeviceChangeReason.REASON_OLD_DEVICE_UNAVAILABLE) {
+      return DeviceChangeReasons.LOST;
+    }
+    if (reason === audio.AudioStreamDeviceChangeReason.REASON_NEW_DEVICE_AVAILABLE) {
+      return DeviceChangeReasons.AVAILABLE;
+    }
+    if (reason === audio.AudioStreamDeviceChangeReason.REASON_OVERRODE) {
+      return DeviceChangeReasons.OVERRODE;
+    }
+    return DeviceChangeReasons.UNKNOWN;
+  }
+
+  /**
+   * audio.DeviceType -> 策略层的设备类别。
+   *
+   * 只映射本工程最低兼容版本就存在的取值（compatibleSdkVersion = 5.0.2(14)）：
+   * 助听器（HEARING_AID）/ NearLink（NEARLINK）是 API 26 才加入的枚举，
+   * 这里落到 OTHER —— 它们同样会触发设备丢失暂停（暂停只看原因），只是重连后不走「蓝牙重连」偏好。
+   */
+  private static toDeviceClasses(devices: audio.AudioDeviceDescriptors): string[] {
+    const classes: string[] = [];
+    if (devices === undefined) {
+      return classes;
+    }
+    for (const device of devices) {
+      classes.push(PlayerManager.toDeviceClass(device.deviceType));
+    }
+    return classes;
+  }
+
+  private static toDeviceClass(deviceType: audio.DeviceType): string {
+    if (deviceType === audio.DeviceType.WIRED_HEADSET
+      || deviceType === audio.DeviceType.WIRED_HEADPHONES
+      || deviceType === audio.DeviceType.USB_HEADSET) {
+      return DeviceClasses.WIRED;
+    }
+    if (deviceType === audio.DeviceType.BLUETOOTH_SCO
+      || deviceType === audio.DeviceType.BLUETOOTH_A2DP) {
+      return DeviceClasses.BLUETOOTH;
+    }
+    if (deviceType === audio.DeviceType.SPEAKER || deviceType === audio.DeviceType.EARPIECE) {
+      return DeviceClasses.BUILT_IN;
+    }
+    return DeviceClasses.OTHER;
+  }
+
+  private static handleStateChange(state: media.AVPlayerState, reason: media.StateChangeReason): void {
+    Logger.info(TAG, 'stateChange -> ' + state + ' reason=' + reason);
+    if (state === 'playing') {
+      PlayerManager.status = PlayerStatus.PLAYING;
+      PlayerManager.pausedAt = 0;
+      // 兜底自愈：进入 playing 后若 speedDone 还没把请求档位确认下来（本地 fd 路径上
+      // prepared 阶段下发有被丢掉的先例），补发一次；补发只做一次，避免来回打架。
+      const expected: number = PlayerManager.toPlaybackSpeed(PlayerManager.intendedSpeed);
+      if (PlayerManager.effectiveSpeedMode !== expected && !PlayerManager.speedRetried) {
+        PlayerManager.speedRetried = true;
+        Logger.warn(TAG, 'speed unverified on playing (effective=' + PlayerManager.effectiveSpeedMode
+          + ' expected=' + expected + '), re-apply ' + PlayerManager.intendedSpeed);
+        PlayerManager.applySpeedToPlayer(PlayerManager.intendedSpeed, 'playing');
+      }
+    } else if (state === 'paused') {
+      PlayerManager.status = PlayerStatus.PAUSED;
+    } else if (state === 'prepared') {
+      PlayerManager.status = PlayerStatus.PREPARED;
+    } else if (state === 'completed') {
+      PlayerManager.status = PlayerStatus.COMPLETED;
+      // 播完不再有「稍后恢复」的语义：清掉意图与暂停原因，避免换集后误恢复
+      PlayerManager.playIntent = false;
+      PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+    } else if (state === 'released') {
+      PlayerManager.status = PlayerStatus.IDLE;
+    } else if (state === 'error') {
+      PlayerManager.status = PlayerStatus.ERROR;
+      PlayerManager.playIntent = false;
+      PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+    }
+    const statusData: PlayerStatusData = { status: PlayerManager.status };
+    EventHub.publish(EventType.PLAYER_STATUS, statusData);
+  }
+}
