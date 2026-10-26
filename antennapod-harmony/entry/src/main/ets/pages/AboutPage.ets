@@ -127,13 +127,15 @@ struct AboutPage {
               // 来源链条：AntennaPod → HomenaPod（移植工程）→ Podlune（本项目）
               this.linkRow($r('app.string.about_row_base_repo'), AppLinks.BASE_REPO)
               this.rowDivider()
-              this.linkRow($r('app.string.about_row_source'), URL_SOURCE)
-              this.rowDivider()
               this.linkRow($r('app.string.about_row_license'), URL_LICENSE)
-              this.rowDivider()
-              this.linkRow($r('app.string.about_row_issues'), URL_ISSUES)
-              this.rowDivider()
-              this.linkRow($r('app.string.about_row_docs'), URL_DOCS)
+              // TODO(上架 GitHub 后恢复)：源码仓库 / 反馈问题 / 项目文档三行，
+              // 现阶段仓库尚未公开，先隐藏，避免给审核与用户一个打不开的链接。
+              // this.rowDivider()
+              // this.linkRow($r('app.string.about_row_source'), URL_SOURCE)
+              // this.rowDivider()
+              // this.linkRow($r('app.string.about_row_issues'), URL_ISSUES)
+              // this.rowDivider()
+              // this.linkRow($r('app.string.about_row_docs'), URL_DOCS)
             }
             .width('100%')
           }
