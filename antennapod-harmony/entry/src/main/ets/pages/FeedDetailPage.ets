@@ -26,7 +26,7 @@ import { PlayerManager } from '../player/PlayerManager';
 import { Playable } from '../model/Playable';
 import { MediaType } from '../model/Enums';
 import { UserPreferences } from '../prefs/UserPreferences';
-import { EventHub, EventType, EpisodeDownloadData, FeedItemUpdateData } from '../events/EventHub';
+import { EventHub, EventType, EpisodeDownloadData, FeedItemUpdateData, FeedUpdateData } from '../events/EventHub';
 import { LazyDataSource } from '../components/LazyDataSource';
 import { FeedCover } from '../components/FeedCover';
 import { DurationUtils } from '../utils/DurationUtils';
@@ -1545,10 +1545,15 @@ struct FeedDetailPage {
         // 取消订阅：先摘掉订阅记录，**保留已下载文件与播放记录**（与全局取消订阅语义区分）
         await SubscriptionService.unsubscribeKeepingFiles(this.feed.id);
         this.subscribed = false;
+        // 通知其它页面（搜索结果卡片 / 首页 / 收件箱）刷新订阅状态
+        const off: FeedUpdateData = { feedId: this.feed.id };
+        EventHub.publish(EventType.FEED_LIST_UPDATE, off);
         this.showMessage(getContext(this).resourceManager.getStringSync($r('app.string.feed_unsubscribed')));
       } else {
         const feed: Feed = await SubscriptionService.subscribe(url);
         this.subscribed = true;
+        const on: FeedUpdateData = { feedId: feed.id };
+        EventHub.publish(EventType.FEED_LIST_UPDATE, on);
         // 订阅成功后退出预览态：单集、收藏、队列、滑动动作全部改走数据库
         this.previewMode = false;
         this.previewItems = [];

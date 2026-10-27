@@ -1,5 +1,6 @@
 // Port of: net/discovery/{ItunesPodcastSearcher,PodcastSearchResult}.java
 import { HttpClient, HttpResponse } from './HttpClient';
+import { AppleCharts, ItunesPodcast } from './AppleCharts';
 
 export interface PodcastSearchResult {
   title: string;
@@ -34,6 +35,38 @@ export class Discovery {
     }
     // 只替换路径末段的 `<n>x<n>bb.jpg`，避免误伤域名或查询串
     return url.replace(/\/\d+x\d+bb\.(jpg|png|jpeg)$/, '/600x600bb.$1');
+  }
+
+  /**
+   * 补齐 feedUrl。
+   *
+   * iTunes **Search** 接口不返回 `feedUrl`（只有 Lookup 才返回），所以直接拿搜索结果去订阅
+   * 会得到空串——表现为「点订阅没反应、详情页也显示未订阅」。这里按 collectionId 批量
+   * Lookup 一次，把真实的 RSS 地址填回去。
+   */
+  static async resolveFeedUrls(items: PodcastSearchResult[]): Promise<void> {
+    const ids: number[] = [];
+    for (const item of items) {
+      const cid: number = item.collectionId === undefined ? 0 : item.collectionId;
+      if (item.feedUrl === '' && cid > 0) {
+        ids.push(cid);
+      }
+    }
+    if (ids.length === 0) {
+      return;
+    }
+    try {
+      const found: Map<number, ItunesPodcast> = await AppleCharts.lookup(ids);
+      for (const item of items) {
+        const cid: number = item.collectionId === undefined ? 0 : item.collectionId;
+        const hit = found.get(cid);
+        if (hit !== undefined && hit.feedUrl !== '') {
+          item.feedUrl = hit.feedUrl;
+        }
+      }
+    } catch (error) {
+      // Lookup 失败就保留空串：调用方会把卡片标成「暂无订阅地址」，不会假装成功
+    }
   }
 
   static async searchPodcasts(term: string, limit: number = 30): Promise<PodcastSearchResult[]> {

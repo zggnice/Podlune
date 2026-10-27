@@ -2839,6 +2839,14 @@
     {
       "name": "about_credit_base_value",
       "value": "HomenaPod（github.com/TomoeMami/HomenaPod）"
+    },
+    {
+      "name": "about_link_pending",
+      "value": "暂未公开（上架后公布）"
+    },
+    {
+      "name": "search_result_no_feed",
+      "value": "该结果缺少订阅地址，请换个关键词重试"
     }
   ]
 }

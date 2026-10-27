@@ -122,20 +122,20 @@ struct AboutPage {
           this.sectionTitle($r('app.string.about_section_legal'))
           RowCard({ pad: 0, radius: DesignTokens.RADIUS_ROW }) {
             Column() {
-              this.linkRow($r('app.string.about_row_upstream_repo'), URL_UPSTREAM)
+              this.linkRow($r('app.string.about_row_upstream_repo'), URL_UPSTREAM, URL_UPSTREAM)
               this.rowDivider()
               // 来源链条：AntennaPod → HomenaPod（移植工程）→ Podlune（本项目）
-              this.linkRow($r('app.string.about_row_base_repo'), AppLinks.BASE_REPO)
+              this.linkRow($r('app.string.about_row_base_repo'), AppLinks.BASE_REPO, AppLinks.BASE_REPO)
               this.rowDivider()
-              this.linkRow($r('app.string.about_row_license'), URL_LICENSE)
-              // TODO(上架 GitHub 后恢复)：源码仓库 / 反馈问题 / 项目文档三行，
-              // 现阶段仓库尚未公开，先隐藏，避免给审核与用户一个打不开的链接。
-              // this.rowDivider()
-              // this.linkRow($r('app.string.about_row_source'), URL_SOURCE)
-              // this.rowDivider()
-              // this.linkRow($r('app.string.about_row_issues'), URL_ISSUES)
-              // this.rowDivider()
-              // this.linkRow($r('app.string.about_row_docs'), URL_DOCS)
+              this.linkRow($r('app.string.about_row_license'), URL_LICENSE, URL_LICENSE)
+              // 仓库尚未公开：卡片保留，但地址显示「暂未公开」且不可点击。
+              // TODO(上架 GitHub 后)：把 URL_SOURCE / URL_ISSUES / URL_DOCS 换成真实地址即可恢复可点。
+              this.rowDivider()
+              this.linkRow($r('app.string.about_row_source'), $r('app.string.about_link_pending'), '')
+              this.rowDivider()
+              this.linkRow($r('app.string.about_row_issues'), $r('app.string.about_link_pending'), '')
+              this.rowDivider()
+              this.linkRow($r('app.string.about_row_docs'), $r('app.string.about_link_pending'), '')
             }
             .width('100%')
           }
@@ -272,14 +272,14 @@ struct AboutPage {
 
   /** 外链行：信息行 + 尾部「打开外部」箭头，点击拉起浏览器（失败退化为复制链接） */
   @Builder
-  linkRow(label: ResourceStr, url: string) {
+  linkRow(label: ResourceStr, value: ResourceStr, url: string) {
     Row({ space: DesignTokens.SPACE_M }) {
       Column({ space: DesignTokens.SPACE_XS }) {
         Text(label).fontFamily(this.appFontFamily)
           .fontSize(DesignTokens.FONT_FOOTNOTE)
           .fontColor($r('app.color.text_secondary'))
           .width('100%')
-        Text(url).fontFamily(this.appFontFamily)
+        Text(value).fontFamily(this.appFontFamily)
           .fontSize(DesignTokens.FONT_PARAGRAPH)
           .fontColor($r('app.color.primary'))
           .width('100%')
@@ -288,9 +288,11 @@ struct AboutPage {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
 
-      SymbolGlyph($r('sys.symbol.arrow_up_right'))
-        .fontSize(DesignTokens.ICON_M)
-        .fontColor([$r('app.color.text_disabled')])
+      if (url !== '') {
+        SymbolGlyph($r('sys.symbol.arrow_up_right'))
+          .fontSize(DesignTokens.ICON_M)
+          .fontColor([$r('app.color.text_disabled')])
+      }
     }
     .width('100%')
     .padding({
@@ -301,7 +303,9 @@ struct AboutPage {
     })
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
-      this.openLink(url);
+      if (url !== '') {
+        this.openLink(url);
+      }
     })
   }
 

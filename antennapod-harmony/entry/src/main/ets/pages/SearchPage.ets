@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import { Discovery, PodcastSearchResult } from '../net/Discovery';
 import { SubscriptionService } from '../services/SubscriptionService';
+import { EventHub, EventType, FeedUpdateData } from '../events/EventHub';
 import { FeedRepository } from '../db/repositories/FeedRepository';
 import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
 import { Feed } from '../model/Feed';
@@ -56,6 +57,8 @@ export struct SearchPage {
   onScrollDelta: (delta: number) => void = () => {
   };
   private dataSource: LazyDataSource<PodcastSearchResult> = new LazyDataSource<PodcastSearchResult>();
+  /** FEED_LIST_UPDATE 订阅 token（详情页订阅后刷新卡片状态） */
+  private feedListToken: number = -1;
   @State term: string = '';
   @State results: PodcastSearchResult[] = [];
   @State episodes: FeedItem[] = [];
@@ -245,7 +248,13 @@ export struct SearchPage {
                   ? $r('app.color.search_action_bg') : Color.Transparent)
                 .alignContent(Alignment.Center)
                 .accessibilityText($r('app.string.discover_subscribe'))
+                .opacity(item.feedUrl === '' ? 0.35 : 1)
                 .onClick(() => {
+                  if (item.feedUrl === '') {
+                    this.message = getContext(this).resourceManager
+                      .getStringSync($r('app.string.search_result_no_feed'));
+                    return;
+                  }
                   this.toggleSubscribe(item.feedUrl);
                 })
               }
@@ -256,6 +265,11 @@ export struct SearchPage {
               .alignItems(VerticalAlign.Center)
               .onClick(() => {
                 // 点卡片 = 只看详情（只读预览，不订阅）；订阅是右侧「+」的职责
+                if (item.feedUrl === '') {
+                  this.message = getContext(this).resourceManager
+                    .getStringSync($r('app.string.search_result_no_feed'));
+                  return;
+                }
                 this.openPreview(item);
               })
             }
@@ -342,7 +356,17 @@ export struct SearchPage {
     .padding({ bottom: 120 })
   }
 
+  /** 从节目详情页返回时刷新订阅状态：那边订阅/取消订阅后，搜索结果卡片要立刻跟着变 */
+  onPageShow(): void {
+    this.refreshSubscribedState();
+  }
+
   aboutToAppear(): void {
+    // 订阅状态跨页同步：详情页订阅 / 取消订阅后会广播 FEED_LIST_UPDATE，
+    // 搜索结果卡片的书签图标据此立即刷新（返回本页时不再是旧状态）。
+    this.feedListToken = EventHub.subscribe(EventType.FEED_LIST_UPDATE, (_data: object) => {
+      this.refreshSubscribedState();
+    });
     const params = router.getParams() as SearchParams;
     if (params !== undefined && params.queuedOnly === true) {
       this.queuedOnly = true;
@@ -351,6 +375,10 @@ export struct SearchPage {
       this.term = params.term;
       this.search();
     }
+  }
+
+  aboutToDisappear(): void {
+    EventHub.unsubscribeToken(this.feedListToken);
   }
 
   async search(): Promise<void> {
@@ -364,6 +392,8 @@ export struct SearchPage {
     if (!this.queuedOnly) {
       try {
         const results: PodcastSearchResult[] = await Discovery.searchPodcasts(query);
+        // iTunes Search 不返回 feedUrl：批量 Lookup 补齐，否则订阅按钮会「点了没反应」
+        await Discovery.resolveFeedUrls(results);
         this.results = results;
         this.dataSource.setData(results);
       } catch (error) {
@@ -469,6 +499,42 @@ export struct SearchPage {
   /** 状态记录里 URL 与 feedId 的分隔符（不可见字符，不会出现在 URL 中） */
   private static readonly LINK_SEP: string = '\u0001';
 
+  /**
+   * 让搜索结果每一行重新渲染。
+   *
+   * 结果列表是 `LazyForEach`：只改 `@State subscribedLinks` 不会重建已渲染的行，
+   * 图标会一直停在旧状态（这就是「订阅了但卡片没变紫」的直接原因）。
+   * 逐个通知单行刷新，既能让图标立即变，也不会把列表滚动位置重置。
+   */
+  private refreshResultRows(): void {
+    for (let i: number = 0; i < this.results.length; i++) {
+      this.dataSource.notifyDataChange(i);
+    }
+  }
+
+  /**
+   * 归一化 feed 地址后再比较。
+   *
+   * Apple 返回的 `feedUrl` 与库里存的 `download_url` 经常只差「http / https」「末尾斜杠」
+   * 或大小写，逐字符比较会误判成「未订阅」（图标不亮、点订阅又插一条重复记录）。
+   */
+  private normalizeFeedUrl(url: string): string {
+    let value: string = url.trim().toLowerCase();
+    if (value.startsWith('https://')) {
+      value = value.substring(8);
+    } else if (value.startsWith('http://')) {
+      value = value.substring(7);
+    }
+    const hash: number = value.indexOf('#');
+    if (hash >= 0) {
+      value = value.substring(0, hash);
+    }
+    while (value.endsWith('/')) {
+      value = value.substring(0, value.length - 1);
+    }
+    return value;
+  }
+
   /** 该 feedUrl 是否已订阅 */
   private isSubscribed(feedUrl: string): boolean {
     return this.subscribedFeedId(feedUrl) > 0;
@@ -479,10 +545,14 @@ export struct SearchPage {
     if (feedUrl === '') {
       return -1;
     }
-    const prefix: string = feedUrl + SearchPage.LINK_SEP;
+    const target: string = this.normalizeFeedUrl(feedUrl);
     for (const link of this.subscribedLinks) {
-      if (link.startsWith(prefix)) {
-        const id: number = Number(link.substring(prefix.length));
+      const sep: number = link.lastIndexOf(SearchPage.LINK_SEP);
+      if (sep < 0) {
+        continue;
+      }
+      if (this.normalizeFeedUrl(link.substring(0, sep)) === target) {
+        const id: number = Number(link.substring(sep + 1));
         return isNaN(id) ? -1 : id;
       }
     }
@@ -505,9 +575,11 @@ export struct SearchPage {
       if (existingId > 0) {
         await SubscriptionService.unsubscribe(existingId);
         const next: string[] = [];
-        const prefix: string = feedUrl + SearchPage.LINK_SEP;
+        const target: string = this.normalizeFeedUrl(feedUrl);
         for (const link of this.subscribedLinks) {
-          if (!link.startsWith(prefix)) {
+          const sep: number = link.lastIndexOf(SearchPage.LINK_SEP);
+          const same: boolean = sep >= 0 && this.normalizeFeedUrl(link.substring(0, sep)) === target;
+          if (!same) {
             next.push(link);
           }
         }
@@ -521,6 +593,7 @@ export struct SearchPage {
         next.push(feedUrl + SearchPage.LINK_SEP + feed.id.toString());
         this.subscribedLinks = next;
       }
+      this.refreshResultRows();
     } catch (error) {
       this.message = getContext(this).resourceManager.getStringSync($r('app.string.subscribe_failed'))
         + (error as Error).message;
@@ -540,6 +613,7 @@ export struct SearchPage {
         }
       }
       this.subscribedLinks = links;
+      this.refreshResultRows();
     } catch (error) {
       this.subscribedLinks = [];
     }
