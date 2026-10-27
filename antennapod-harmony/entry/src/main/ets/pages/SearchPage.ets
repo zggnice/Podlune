@@ -59,6 +59,8 @@ export struct SearchPage {
   private dataSource: LazyDataSource<PodcastSearchResult> = new LazyDataSource<PodcastSearchResult>();
   /** FEED_LIST_UPDATE 订阅 token（详情页订阅后刷新卡片状态） */
   private feedListToken: number = -1;
+  /** 正在订阅的 feedUrl（只给那一行显示转圈） */
+  @State subscribingUrl: string = '';
   @State term: string = '';
   @State results: PodcastSearchResult[] = [];
   @State episodes: FeedItem[] = [];
@@ -66,7 +68,7 @@ export struct SearchPage {
   @State message: string = '';
   @State searched: boolean = false;
   /**
-   * 已订阅映射：feedUrl → feedId。
+   * 已订阅集合（归一化地址）。
    * 用「URL 数组」存不下 feedId，而取消订阅需要 feedId（`SubscriptionService.unsubscribe`）。
    * 用字符串存成 "url\u0001id" 的数组形式，规避 ArkUI 对 Map 的状态监听限制。
    */
@@ -235,11 +237,19 @@ export struct SearchPage {
                 // 右侧订阅按钮：书签轮廓（未订阅，中性灰）↔ 实心书签（已订阅，品牌紫）
                 // 点击切换：订阅后变紫，再点取消订阅、紫色消失
                 Stack() {
-                  SymbolGlyph(this.isSubscribed(item.feedUrl)
-                    ? $r('sys.symbol.bookmark_fill') : $r('sys.symbol.bookmark'))
-                    .fontSize(DesignTokens.ICON_L)
-                    .fontColor([this.isSubscribed(item.feedUrl)
-                      ? $r('app.color.primary') : $r('app.color.search_hint_icon')])
+                  if (this.subscribing && this.subscribingUrl === item.feedUrl) {
+                    // 订阅中：抓取 RSS 需要时间，转圈提示，避免「点了没反应」
+                    LoadingProgress()
+                      .width(DesignTokens.ICON_M)
+                      .height(DesignTokens.ICON_M)
+                      .color($r('app.color.primary'))
+                  } else {
+                    SymbolGlyph(this.isSubscribed(item.feedUrl)
+                      ? $r('sys.symbol.bookmark_fill') : $r('sys.symbol.bookmark'))
+                      .fontSize(DesignTokens.ICON_L)
+                      .fontColor([this.isSubscribed(item.feedUrl)
+                        ? $r('app.color.primary') : $r('app.color.search_hint_icon')])
+                  }
                 }
                 .width(36)
                 .height(36)
@@ -310,6 +320,12 @@ export struct SearchPage {
         // 页签模式下给底栏 + 迷你播放器让位
         .contentEndOffset(this.bottomInset)
         .scrollBar(BarState.Off)
+        // 作为常驻 Tab 时不会触发 onPageShow：用可见性变化兜底刷新订阅状态
+        .onVisibleAreaChange([0.0, 1.0], (isVisible: boolean, _ratio: number) => {
+          if (isVisible) {
+            this.refreshSubscribedState();
+          }
+        })
         // 与首页一致：把真实垂直滚动增量交给外壳，驱动 Dock 折叠
         .onScrollFrameBegin((offset: number, _state: ScrollState) => {
           if (offset !== 0) {
@@ -496,9 +512,6 @@ export struct SearchPage {
     });
   }
 
-  /** 状态记录里 URL 与 feedId 的分隔符（不可见字符，不会出现在 URL 中） */
-  private static readonly LINK_SEP: string = '\u0001';
-
   /**
    * 让搜索结果每一行重新渲染。
    *
@@ -535,89 +548,90 @@ export struct SearchPage {
     return value;
   }
 
-  /** 该 feedUrl 是否已订阅 */
+  /** 该 feedUrl 是否已订阅（比对归一化地址；数据来源始终是数据库） */
   private isSubscribed(feedUrl: string): boolean {
-    return this.subscribedFeedId(feedUrl) > 0;
-  }
-
-  /** 已订阅则返回对应的 feedId，否则 -1（取消订阅需要 feedId） */
-  private subscribedFeedId(feedUrl: string): number {
     if (feedUrl === '') {
-      return -1;
+      return false;
     }
-    const target: string = this.normalizeFeedUrl(feedUrl);
-    for (const link of this.subscribedLinks) {
-      const sep: number = link.lastIndexOf(SearchPage.LINK_SEP);
-      if (sep < 0) {
-        continue;
-      }
-      if (this.normalizeFeedUrl(link.substring(0, sep)) === target) {
-        const id: number = Number(link.substring(sep + 1));
-        return isNaN(id) ? -1 : id;
-      }
-    }
-    return -1;
+    return this.subscribedLinks.indexOf(this.normalizeFeedUrl(feedUrl)) >= 0;
   }
 
   /**
-   * 点订阅图标：**切换订阅状态**。
-   * 未订阅 → 订阅（图标变紫）；已订阅 → 取消订阅（紫色消失）。
-   * 订阅 / 取消成功后立即更新本地状态，按钮当场变色，不跳页。
+   * 点订阅图标：切换订阅状态。
+   *
+   * 这里不再依赖「进入页面时缓存的 feedId 映射」——那套映射只要 URL 有一点差异、
+   * 或列表刷新时机不对，就会出现「订阅成功但图标不变 / 点第二次又插一条」。
+   * 现在点下去先回库查真实状态，再决定订阅还是取消，成功后再刷新整页状态。
    */
   private async toggleSubscribe(feedUrl: string): Promise<void> {
     if (feedUrl === '' || this.subscribing) {
       return;
     }
     this.subscribing = true;
+    this.subscribingUrl = feedUrl;
     this.message = '';
-    const existingId: number = this.subscribedFeedId(feedUrl);
     try {
-      if (existingId > 0) {
-        await SubscriptionService.unsubscribe(existingId);
-        const next: string[] = [];
-        const target: string = this.normalizeFeedUrl(feedUrl);
-        for (const link of this.subscribedLinks) {
-          const sep: number = link.lastIndexOf(SearchPage.LINK_SEP);
-          const same: boolean = sep >= 0 && this.normalizeFeedUrl(link.substring(0, sep)) === target;
-          if (!same) {
-            next.push(link);
-          }
-        }
-        this.subscribedLinks = next;
+      const existing: Feed | undefined = await FeedRepository.getByDownloadUrl(feedUrl);
+      const subscribedNow: boolean = existing !== undefined && existing.state === 1;
+      if (subscribedNow && existing !== undefined) {
+        await SubscriptionService.unsubscribe(existing.id);
+        const off: FeedUpdateData = { feedId: existing.id };
+        EventHub.publish(EventType.FEED_LIST_UPDATE, off);
       } else {
         const feed: Feed = await SubscriptionService.subscribe(feedUrl);
-        const next: string[] = [];
-        for (const link of this.subscribedLinks) {
-          next.push(link);
-        }
-        next.push(feedUrl + SearchPage.LINK_SEP + feed.id.toString());
-        this.subscribedLinks = next;
+        const on: FeedUpdateData = { feedId: feed.id };
+        EventHub.publish(EventType.FEED_LIST_UPDATE, on);
       }
-      this.refreshResultRows();
+      await this.refreshSubscribedState();
     } catch (error) {
       this.message = getContext(this).resourceManager.getStringSync($r('app.string.subscribe_failed'))
         + (error as Error).message;
     } finally {
       this.subscribing = false;
+      this.subscribingUrl = '';
+      this.refreshResultRows();
     }
   }
 
-  /** 搜索结果回来后批量回填订阅状态（含 feedId，供取消订阅使用） */
+  /**
+   * 回填订阅状态（数据来源：数据库）。
+   *
+   * 除了「整库已订阅集合」，还会对当前搜索结果逐条按 URL 回查一次：
+   * `listSubscribed()` 的集合与搜索结果的 URL 只差一点（协议/斜杠/大小写）时，
+   * 单靠集合比对会漏判，逐条回查能把真实状态捞回来。
+   */
   private async refreshSubscribedState(): Promise<void> {
+    const keys: string[] = [];
     try {
       const feeds: Feed[] = await FeedRepository.listSubscribed();
-      const links: string[] = [];
       for (const feed of feeds) {
         if (feed.downloadUrl !== '') {
-          links.push(feed.downloadUrl + SearchPage.LINK_SEP + feed.id.toString());
+          keys.push(this.normalizeFeedUrl(feed.downloadUrl));
         }
       }
-      this.subscribedLinks = links;
-      this.refreshResultRows();
     } catch (error) {
-      this.subscribedLinks = [];
+      // 整库读取失败不致命：下面还会逐条回查
     }
+    for (const item of this.results) {
+      if (item.feedUrl === '') {
+        continue;
+      }
+      try {
+        const hit: Feed | undefined = await FeedRepository.getByDownloadUrl(item.feedUrl);
+        if (hit !== undefined && hit.state === 1) {
+          const key: string = this.normalizeFeedUrl(item.feedUrl);
+          if (keys.indexOf(key) < 0) {
+            keys.push(key);
+          }
+        }
+      } catch (error) {
+        // 单条失败忽略
+      }
+    }
+    this.subscribedLinks = keys;
+    this.refreshResultRows();
   }
+
   feedImage(feedId: number): string {
     return this.feedImages.get(feedId) ?? '';
   }

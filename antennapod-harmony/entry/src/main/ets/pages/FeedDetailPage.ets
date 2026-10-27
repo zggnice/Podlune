@@ -14,6 +14,7 @@ import { FeedMedia } from '../model/FeedMedia';
 import { FeedFilter } from '../model/FeedFilter';
 import { SortOrder } from '../model/Enums';
 import { FeedRepository } from '../db/repositories/FeedRepository';
+import { Logger } from '../utils/Logger';
 import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
 import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
 import { RefreshService } from '../services/RefreshService';
@@ -654,9 +655,17 @@ struct FeedDetailPage {
   @Builder
   subscribeAction() {
     Stack() {
-      SymbolGlyph(this.subscribed ? $r('sys.symbol.checkmark') : $r('sys.symbol.plus'))
-        .fontSize(DesignTokens.ICON_M)
-        .fontColor([this.subscribed ? $r('app.color.player_text') : $r('app.color.primary')])
+      if (this.togglingSubscribe) {
+        // 订阅要抓一次 RSS 才落库（国内源可能 10~30 秒），必须给出进行中反馈
+        LoadingProgress()
+          .width(DesignTokens.ICON_M)
+          .height(DesignTokens.ICON_M)
+          .color($r('app.color.primary'))
+      } else {
+        SymbolGlyph(this.subscribed ? $r('sys.symbol.checkmark') : $r('sys.symbol.plus'))
+          .fontSize(DesignTokens.ICON_M)
+          .fontColor([this.subscribed ? $r('app.color.player_text') : $r('app.color.primary')])
+      }
     }
     .width(46)
     .height(46)
@@ -1476,6 +1485,43 @@ struct FeedDetailPage {
    * 之所以入库而不是内存预览：详情页的筛选 / 下载 / 播放都建立在数据库记录之上，
    * 只读预览会让这些按钮点了没反应，违背「内容完全一样」的要求。
    */
+  /** 归一化 feed 地址（忽略协议 / 末尾斜杠 / 大小写 / fragment），与搜索页同一套规则 */
+  private normalizeFeedAddr(url: string): string {
+    let value: string = url.trim().toLowerCase();
+    if (value.startsWith('https://')) {
+      value = value.substring(8);
+    } else if (value.startsWith('http://')) {
+      value = value.substring(7);
+    }
+    const hash: number = value.indexOf('#');
+    if (hash >= 0) {
+      value = value.substring(0, hash);
+    }
+    while (value.endsWith('/')) {
+      value = value.substring(0, value.length - 1);
+    }
+    return value;
+  }
+
+  /** 按归一化地址在已订阅集合里找 feed（精确匹配失败时的兜底） */
+  private async findSubscribedByLooseUrl(url: string): Promise<Feed | undefined> {
+    const target: string = this.normalizeFeedAddr(url);
+    if (target === '') {
+      return undefined;
+    }
+    try {
+      const feeds: Feed[] = await FeedRepository.listSubscribed();
+      for (const feed of feeds) {
+        if (this.normalizeFeedAddr(feed.downloadUrl) === target) {
+          return feed;
+        }
+      }
+    } catch (error) {
+      // 回查失败就按未订阅处理（与旧行为一致）
+    }
+    return undefined;
+  }
+
   async openFromSearch(params: FeedDetailParams): Promise<void> {
     const url: string = params.feedUrl === undefined ? '' : params.feedUrl;
     if (url === '') {
@@ -1486,7 +1532,11 @@ struct FeedDetailPage {
     NetworkWarmup.warm(url);
     this.loading = true;
     try {
-      const existing: Feed | undefined = await FeedRepository.getByDownloadUrl(url);
+      let existing: Feed | undefined = await FeedRepository.getByDownloadUrl(url);
+      if (existing === undefined) {
+        // 精确匹配失败时再按归一化地址回查：http/https、末尾斜杠不同会漏判 → 误显示「未订阅」
+        existing = await this.findSubscribedByLooseUrl(url);
+      }
       if (existing !== undefined) {
         // 已经订阅过：直接读库，行为与从订阅列表进入完全一致
         await this.load(existing.id);

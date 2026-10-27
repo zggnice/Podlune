@@ -20,10 +20,26 @@ export class SubscriptionService {
    */
   static async subscribe(url: string, username: string = '', password: string = '',
                          inboxBaseline: number = 0): Promise<Feed> {
-    // 已订阅同一 feed 时直接返回，避免重复插入（OPML 重复导入 / 重复添加）
+    // 已存在同一 feed 时不再插新行（OPML 重复导入 / 重复添加）。
+    // 注意：这里必须区分「当前是订阅状态」和「之前取消过订阅、行还留着」——
+    // 旧实现只要查到行就直接返回，导致重新点订阅永远不生效（界面一直是未订阅）。
     const existing: Feed | undefined = await FeedRepository.getByDownloadUrl(url);
     if (existing !== undefined) {
-      Logger.info(TAG, 'already subscribed, reuse feed id=' + existing.id);
+      if (existing.state === FeedState.STATE_SUBSCRIBED) {
+        Logger.info(TAG, 'already subscribed, reuse feed id=' + existing.id);
+        return existing;
+      }
+      // 重新订阅：把记录恢复为已订阅，并按正常订阅路径补一次抓取（合并新单集）
+      existing.state = FeedState.STATE_SUBSCRIBED;
+      if (username !== '') {
+        existing.username = username;
+      }
+      if (password !== '') {
+        existing.password = password;
+      }
+      await FeedRepository.update(existing);
+      const merged: MergeResult = await RefreshService.mergeFeed(existing, existing, false);
+      Logger.info(TAG, 'resubscribed feed id=' + existing.id + ' items=' + merged.count);
       return existing;
     }
     const result = await FeedFetcher.fetchFeed(url, username, password);
