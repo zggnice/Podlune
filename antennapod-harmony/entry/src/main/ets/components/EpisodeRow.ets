@@ -1,4 +1,5 @@
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLight } from '../common/PressLight';
 import { FeedCover } from './FeedCover';
 
 /**
@@ -212,6 +213,7 @@ export struct EpisodeRow {
     .width('100%')
     .padding({ top: DesignTokens.SPACE_S, bottom: DesignTokens.SPACE_XS })
     .backgroundColor(this.selected ? $r('app.color.primary_container') : Color.Transparent)
+    .visualEffect(PressLight.ambient())
     .borderRadius(this.selected ? 12 : 0)
     .opacity(this.handleDragging ? 0 : (this.isPlayed ? 0.5 : 1))
     .onAreaChange((_oldArea: Area, newArea: Area) => {
@@ -474,6 +476,7 @@ export struct EpisodeRow {
     .padding(this.cardStyle
       ? { left: DesignTokens.SPACE_L, right: DesignTokens.SPACE_XS, top: DesignTokens.SPACE_M, bottom: DesignTokens.SPACE_M }
       : { left: DesignTokens.SPACE_M })
+    .visualEffect(PressLight.ambient())
     // 选中态（多选）与播放中态都来自上游的 colorSecondaryContainer 圆角底：
     // 选中 = itemView.setSelected(true)，播放中 = setActivated(PlaybackStatus.isCurrentlyPlaying)
     .backgroundColor(this.selected

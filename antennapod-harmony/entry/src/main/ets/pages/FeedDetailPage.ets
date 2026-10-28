@@ -33,6 +33,7 @@ import { FeedCover } from '../components/FeedCover';
 import { DurationUtils } from '../utils/DurationUtils';
 import { DateUtils } from '../utils/DateUtils';
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLight } from '../common/PressLight';
 import { menuIcon } from '../common/MenuIcons';
 import { openEpisodeDetail } from '../common/EpisodeRoute';
 import {
@@ -671,6 +672,7 @@ struct FeedDetailPage {
     .height(46)
     .borderRadius(23)
     .backgroundColor($r('app.color.detail_action_chip'))
+    .visualEffect(PressLight.ambient())
     .alignContent(Alignment.Center)
     .accessibilityText($r('app.string.discover_subscribe'))
     .accessibilitySelected(this.subscribed)
@@ -698,6 +700,7 @@ struct FeedDetailPage {
     .justifyContent(FlexAlign.Center)
     .borderRadius(23)
     .backgroundColor($r('app.color.detail_action_chip'))
+    .visualEffect(PressLight.ambient())
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
       this.play(this.episodes[0]);

@@ -1,4 +1,5 @@
 import router from '@ohos.router';
+import { PressLight } from '../common/PressLight';
 import { SubscriptionService } from '../services/SubscriptionService';
 import { HttpClient, HttpResponse } from '../net/HttpClient';
 import { EventHub, EventType, FeedUpdateData } from '../events/EventHub';
@@ -63,6 +64,7 @@ struct AddFeedPage {
           .borderRadius(25)
           .margin({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
           .padding({ right: DesignTokens.SPACE_XS })
+          .visualEffect(PressLight.ambient())
 
           // 6.2 行 1：Add podcast by RSS address（保留既有 URL 输入 + 私有订阅认证）
           Column() {

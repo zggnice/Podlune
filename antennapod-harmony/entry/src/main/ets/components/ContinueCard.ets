@@ -1,4 +1,5 @@
 import common from '@ohos.app.ability.common';
+import { PressLight } from '../common/PressLight';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import { Configuration } from '@ohos.app.ability.Configuration';
 import { HtmlCleaner } from '../utils/HtmlCleaner';
@@ -130,6 +131,7 @@ export struct ContinueCard {
     .width(this.cardWidth)
     .height(this.cardWidth * this.aspect)
     .borderRadius(20)
+    .visualEffect(PressLight.ambient())
     .clip(true)
     .backgroundColor($r('app.color.surface_container'))
     .gesture(

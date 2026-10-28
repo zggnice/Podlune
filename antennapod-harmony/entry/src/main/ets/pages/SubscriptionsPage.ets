@@ -11,6 +11,7 @@ import { FeedCover } from '../components/FeedCover';
 import { LazyDataSource } from '../components/LazyDataSource';
 import { EventHub, EventType, RefreshStateData, FeedItemUpdateData } from '../events/EventHub';
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLight } from '../common/PressLight';
 import { menuIcon } from '../common/MenuIcons';
 import { AppIconButton } from '../components/AppIconButton';
 import { OverflowButton } from '../components/OverflowButton';
@@ -895,6 +896,8 @@ export struct SubscriptionsPage {
   @Builder
   gridTile(feed: Feed) {
     Column({ space: DesignTokens.SPACE_XS }) {
+      // 下沉一层包住瓦片：整块（封面 + 标题）按压时都有沉浸光感
+
       Stack() {
         FeedCover({
           imageUrl: feed.imageUrl,

@@ -1,4 +1,5 @@
 import router from '@ohos.router';
+import { PressLight } from '../common/PressLight';
 import { ChartEpisodeResolver } from '../services/ChartEpisodeResolver';
 import { ChartService, RankItem, XyzList } from '../services/ChartService';
 import { DesignTokens } from '../common/DesignTokens';
@@ -292,6 +293,7 @@ struct ChartsPage {
         : (this.appleSub === index ? $r('app.color.on_primary') : $r('app.color.text_secondary')))
       .padding({ left: 12, right: 12, top: 6, bottom: 6 })
       .borderRadius(14)
+      .visualEffect(PressLight.ambient())
       .backgroundColor(this.tab === ChartsPage.TAB_CN
         ? (this.sub === index ? $r('app.color.primary') : $r('app.color.player_chip'))
         : (this.appleSub === index ? $r('app.color.primary') : $r('app.color.player_chip')))
@@ -334,6 +336,7 @@ struct ChartsPage {
     .width('100%')
     .padding(DesignTokens.SPACE_M)
     .borderRadius(22)
+    .visualEffect(PressLight.ambient())
     .backgroundColor($r('app.color.search_card_bg'))
     .alignItems(VerticalAlign.Center)
     .onClick(() => {

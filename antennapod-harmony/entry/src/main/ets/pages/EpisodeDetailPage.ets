@@ -1,4 +1,5 @@
 import router from '@ohos.router';
+import { PressLight } from '../common/PressLight';
 import { NetworkWarmup } from '../common/NetworkWarmup';
 import pasteboard from '@ohos.pasteboard';
 import { Feed } from '../model/Feed';
@@ -293,6 +294,7 @@ struct EpisodeDetailPage {
       .height(46)
       .borderRadius(23)
       .backgroundColor($r('app.color.player_chip'))
+      .visualEffect(PressLight.ambient())
       .alignContent(Alignment.Center)
       .accessibilityText(this.queued ? $r('app.string.queue_remove') : $r('app.string.episode_add_queue'))
       .onClick(() => {
@@ -325,6 +327,7 @@ struct EpisodeDetailPage {
     .justifyContent(FlexAlign.Center)
     .borderRadius(23)
     .backgroundColor($r('app.color.player_chip'))
+    .visualEffect(PressLight.ambient())
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
       this.primaryAction();
@@ -366,6 +369,7 @@ struct EpisodeDetailPage {
     .justifyContent(FlexAlign.Center)
     .borderRadius(23)
     .backgroundColor($r('app.color.player_chip'))
+    .visualEffect(PressLight.ambient())
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
       this.secondaryAction();

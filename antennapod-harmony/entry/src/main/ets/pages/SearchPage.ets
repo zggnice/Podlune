@@ -1,4 +1,5 @@
 import router from '@ohos.router';
+import { PressLight } from '../common/PressLight';
 import { Discovery, PodcastSearchResult } from '../net/Discovery';
 import { SubscriptionService } from '../services/SubscriptionService';
 import { EventHub, EventType, FeedUpdateData } from '../events/EventHub';
@@ -272,6 +273,7 @@ export struct SearchPage {
               .padding(DesignTokens.SPACE_M)
               .borderRadius(22)
               .backgroundColor($r('app.color.search_card_bg'))
+              .visualEffect(PressLight.ambient())
               .alignItems(VerticalAlign.Center)
               .onClick(() => {
                 // 点卡片 = 只看详情（只读预览，不订阅）；订阅是右侧「+」的职责

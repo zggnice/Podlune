@@ -1,6 +1,7 @@
 import { ImageCache } from '../services/ImageCache';
 import common from '@ohos.app.ability.common';
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLight } from '../common/PressLight';
 
 /**
  * 订阅/剧集封面：圆角方形封面，无图时显示占位底。
@@ -75,6 +76,7 @@ export struct FeedCover {
       .height('100%')
       .borderRadius(this.radius)
       .border({ width: 0.5, color: $r('app.color.cover_edge') })
+      .visualEffect(PressLight.ambient())
       .clip(true)
     } else if (this.fill) {
       Column() {
@@ -85,6 +87,7 @@ export struct FeedCover {
       .borderRadius(this.radius)
       // 极细描边：浅色模式下白封面 / 深色模式下黑封面都能与背景分离
       .border({ width: 0.5, color: $r('app.color.cover_edge') })
+      .visualEffect(PressLight.ambient())
       .clip(true)
     } else {
       Column() {
@@ -94,6 +97,7 @@ export struct FeedCover {
       .height(this.coverSize)
       .borderRadius(this.radius)
       .border({ width: 0.5, color: $r('app.color.cover_edge') })
+      .visualEffect(PressLight.ambient())
       .clip(true)
     }
   }

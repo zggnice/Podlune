@@ -10,7 +10,20 @@ import { hdsEffect } from '@kit.UIDesignKit';
  * 因此调用方不需要做额外兜底。
  */
 export class PressLight {
-  /** 按压态效果：lit=true 时点亮 */
+  /**
+   * 系统托管的沉浸光感：只声明「照亮边框与内容」，何时点亮交给系统
+   * （按住时自动点亮，与 HarmonyX 的 TweetCard / PostDetail / Index 用法一致）。
+   * 这是本项目大多数控件的默认选择：无需维护按压状态。
+   */
+  static ambient(): VisualEffect {
+    return new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+      })
+      .buildEffect();
+  }
+
+  /** 手动按压态效果：lit=true 时点亮 */
   static effect(lit: boolean): VisualEffect {
     return new hdsEffect.HdsEffectBuilder()
       .pointLight({

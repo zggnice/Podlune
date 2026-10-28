@@ -1,4 +1,5 @@
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLight } from '../common/PressLight';
 
 /**
  * 溢出菜单按钮：44vp 热区 + 图标，点击弹出 @BuilderParam 注入的菜单。
@@ -24,6 +25,7 @@ export struct OverflowButton {
     .width(DesignTokens.HIT_MIN)
     .height(DesignTokens.HIT_MIN)
     .borderRadius(DesignTokens.HIT_MIN / 2)
+    .visualEffect(PressLight.ambient())
     .alignContent(Alignment.Center)
     .bindMenu(this.menu)
   }
