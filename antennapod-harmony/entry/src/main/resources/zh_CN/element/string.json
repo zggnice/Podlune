@@ -2847,6 +2847,10 @@
     {
       "name": "search_result_no_feed",
       "value": "该结果缺少订阅地址，请换个关键词重试"
+    },
+    {
+      "name": "feed_notice_xiaoyuzhou_155",
+      "value": "（155期以后独家小宇宙）"
     }
   ]
 }

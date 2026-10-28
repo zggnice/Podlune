@@ -28,6 +28,7 @@ import { Playable } from '../model/Playable';
 import { MediaType } from '../model/Enums';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { EventHub, EventType, EpisodeDownloadData, FeedItemUpdateData, FeedUpdateData } from '../events/EventHub';
+import { FeedNotices } from '../common/FeedNotices';
 import { LazyDataSource } from '../components/LazyDataSource';
 import { FeedCover } from '../components/FeedCover';
 import { DurationUtils } from '../utils/DurationUtils';
@@ -540,6 +541,16 @@ struct FeedDetailPage {
             .textAlign(TextAlign.Center)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        // 公开 RSS 停更、平台内仍在更新的节目：明确告诉用户后续在哪里更新
+        if (this.feed !== undefined && FeedNotices.isXiaoyuzhouAfter155(this.feed.downloadUrl)) {
+          Text($r('app.string.feed_notice_xiaoyuzhou_155')).fontFamily(this.appFontFamily)
+            .fontSize(DesignTokens.FONT_FOOTNOTE)
+            .fontColor($r('app.color.primary'))
+            .textAlign(TextAlign.Center)
+            .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+            .borderRadius(6)
+            .backgroundColor($r('app.color.primary_container'))
         }
       }
       .width('100%')

@@ -2847,6 +2847,10 @@
     {
       "name": "search_result_no_feed",
       "value": "This result has no feed URL; try another keyword"
+    },
+    {
+      "name": "feed_notice_xiaoyuzhou_155",
+      "value": "(Episodes after #155 are exclusive to Xiaoyuzhou)"
     }
   ]
 }
