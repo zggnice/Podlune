@@ -178,9 +178,7 @@ export struct SettingsPage {
           this.categoryTitle($r('app.string.settings_section_playback'))
           RowCard({ pad: 0, radius: 20 }) {
             Column() {
-              this.navRow($r('sys.symbol.timer'), $r('app.string.setting_speed'), this.speedText, () => {
-                this.cycleDefaultSpeed();
-              })
+              this.defaultSpeedNav()
               this.rowDivider()
               this.numberRow($r('sys.symbol.arrow_left'), $r('app.string.setting_rewind'), this.rewindText, 72,
                 (text: string) => {
@@ -1190,6 +1188,45 @@ export struct SettingsPage {
     this.message = getContext(this).resourceManager.getStringSync($r('app.string.language_restart'));
   }
 
+  /**
+   * 默认倍速行：图标 + 标题 + 当前值 + 箭头，点击循环切换并持久化。
+   *
+   * `@Builder` 的参数是**按值传递**：把 `this.speedText` 当参数传给 navRow 时，
+   * 切换后右侧文案不会刷新（点一次「没反应」）。这里在 builder 内部直接读 `@State speedText`。
+   */
+  @Builder
+  defaultSpeedNav() {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph($r('sys.symbol.timer'))
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+      Text($r('app.string.setting_speed'))
+        .fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+      Text(this.speedText)
+        .fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+      SymbolGlyph($r('sys.symbol.chevron_forward'))
+        .fontSize(DesignTokens.ICON_M)
+        .fontColor([$r('app.color.text_disabled')])
+    }
+    .width('100%')
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      this.cycleDefaultSpeed();
+    })
+  }
+
   cycleDefaultSpeed(): void {
     const presets: number[] = PlayerManager.SPEED_PRESETS;
     const current: number = UserPreferences.getDefaultPlaybackSpeed();
@@ -1200,6 +1237,8 @@ export struct SettingsPage {
     const next: number = presets[(index + 1) % presets.length];
     UserPreferences.setDefaultPlaybackSpeed(next);
     this.speedText = next.toFixed(2) + 'x';
+    // 默认倍速决定「未单独设置倍速的单集」的时长折算：队列页信息条的剩余时长要立即重算
+    this.notifyPrefsChanged();
   }
 
   saveSkipSteps(): void {

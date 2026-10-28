@@ -9,7 +9,7 @@ import { RefreshService } from '../services/RefreshService';
 import { PlayerManager } from '../player/PlayerManager';
 import { FeedCover } from '../components/FeedCover';
 import { LazyDataSource } from '../components/LazyDataSource';
-import { EventHub, EventType, RefreshStateData, FeedItemUpdateData } from '../events/EventHub';
+import { EventHub, EventType, RefreshStateData, FeedItemUpdateData, FeedUpdateData } from '../events/EventHub';
 import { DesignTokens } from '../common/DesignTokens';
 import { PressLight } from '../common/PressLight';
 import { menuIcon } from '../common/MenuIcons';
@@ -2226,6 +2226,9 @@ export struct SubscriptionsPage {
       mutate(feed);
       await FeedRepository.updatePreferences(feed);
     }
+    // feedId 0 = 整库（与刷新 / 排序广播同口径）：队列信息条等据此重读每订阅倍速
+    const data: FeedUpdateData = { feedId: 0 };
+    EventHub.publish(EventType.FEED_UPDATE, data);
     this.showMessage(getContext(this).resourceManager.getStringSync(
       $r('app.string.updated_feeds_batch'), selected.length.toString()));
     if (selected.length <= 1) {
