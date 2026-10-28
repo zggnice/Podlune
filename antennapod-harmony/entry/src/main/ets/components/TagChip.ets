@@ -1,4 +1,5 @@
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLight } from '../common/PressLight';
 
 /** 筛选胶囊（HarmonyOS 分档按钮规范）：选中＝品牌色填充，未选中＝次级表面。 */
 @Component
@@ -9,6 +10,9 @@ export struct TagChip {
   @Prop selected: boolean = false;
   onTap: () => void = () => {
   };
+
+  /** 按压光感（HDS point light） */
+  @State private lightPressed: boolean = false;
 
   build() {
     Text(this.label).fontFamily(this.appFontFamily)

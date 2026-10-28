@@ -24,6 +24,7 @@ import { EventHub, EventType, SleepTimerData } from '../events/EventHub';
 import { DurationUtils } from '../utils/DurationUtils';
 import { ShownotesSegment, ShownotesText } from '../utils/ShownotesText';
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLightSurface } from '../common/PressLight';
 import { openEpisodeDetail } from '../common/EpisodeRoute';
 import { FeedCover } from '../components/FeedCover';
 import { ShownotesBody } from '../components/ShownotesBody';
@@ -417,21 +418,23 @@ struct PlayerPage {
 
         // 播放/暂停：纯白图标、无背景、无圆角（华为音乐风格，图标比左右按钮更大）
         // 播放/暂停：系统符号 + ReplaceSymbolEffect（切换时图标平滑替换，非硬切）
-        SymbolGlyph(this.status === 'PLAYING'
-          ? $r('sys.symbol.pause_fill') : $r('sys.symbol.play_fill'))
-          .fontSize(48)
+        PressLightSurface({ radius: 40 }) {
+          SymbolGlyph(this.status === 'PLAYING'
+            ? $r('sys.symbol.pause_fill') : $r('sys.symbol.play_fill'))
+            .fontSize(48)
           .fontColor([Color.White])
           .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), true)
-          .accessibilityText(this.status === 'PLAYING'
-            ? $r('app.string.player_pause') : $r('app.string.player_play'))
-        .onClick(() => {
-          if (this.status === 'PLAYING') {
-            PlayerManager.pause();
-          } else {
-            // 与单集详情页同一入口：确保真的播起来（含竞态重试）
-            PlayerManager.ensurePlaying();
-          }
-        })
+            .accessibilityText(this.status === 'PLAYING'
+              ? $r('app.string.player_pause') : $r('app.string.player_play'))
+          .onClick(() => {
+            if (this.status === 'PLAYING') {
+              PlayerManager.pause();
+            } else {
+              // 与单集详情页同一入口：确保真的播起来（含竞态重试）
+              PlayerManager.ensurePlaying();
+            }
+          })
+        }
 
         this.roundControl($r('sys.symbol.goforward_30'), '', () => {
           PlayerManager.seekBy(UserPreferences.getFastForwardSecs() * 1000);
@@ -481,17 +484,19 @@ struct PlayerPage {
   @Builder
   roundControl(icon: Resource, label: string, onTap: () => void) {
     Column({ space: 2 }) {
-      Stack() {
-        SymbolGlyph(icon)
-          .fontSize(34)
-          .fontColor([$r('app.color.player_text_forced')])
+      PressLightSurface({ radius: 24 }) {
+        Stack() {
+          SymbolGlyph(icon)
+            .fontSize(34)
+            .fontColor([$r('app.color.player_text_forced')])
+        }
+        .width(48)
+        .height(48)
+        .alignContent(Alignment.Center)
+        .onClick(() => {
+          onTap();
+        })
       }
-      .width(48)
-      .height(48)
-      .alignContent(Alignment.Center)
-      .onClick(() => {
-        onTap();
-      })
       if (label !== '') {
         Text(label).fontFamily(this.appFontFamily)
           .fontSize(DesignTokens.FONT_FOOTNOTE)
@@ -677,22 +682,31 @@ struct PlayerPage {
   /** 底部功能条里的图标（线性、无独立底色；激活态用品牌紫） */
   @Builder
   toolButton(icon: Resource, label: ResourceStr, onTap: () => void, active: boolean = false) {
-    Column({ space: 2 }) {
-      SymbolGlyph(icon)
-        .fontSize(DesignTokens.ICON_M)
-        .fontColor([active ? $r('app.color.player_text_forced') : $r('app.color.player_text_secondary_forced')])
-      Text(label).fontFamily(this.appFontFamily)
-        .fontSize(9)
-        .fontColor(active ? $r('app.color.player_text_forced') : $r('app.color.player_text_secondary_forced'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    // 外层 Column 只负责在工具栏里均分宽度；光感容器不要直接链属性（ArkTS 不允许
+    // 自定义组件后紧跟 .layoutWeight），所以把它放在内层。
+    Column() {
+      PressLightSurface({ radius: 14 }) {
+        Column({ space: 2 }) {
+          SymbolGlyph(icon)
+            .fontSize(DesignTokens.ICON_M)
+            .fontColor([active ? $r('app.color.player_text_forced') : $r('app.color.player_text_secondary_forced')])
+          Text(label).fontFamily(this.appFontFamily)
+            .fontSize(9)
+            .fontColor(active ? $r('app.color.player_text_forced') : $r('app.color.player_text_secondary_forced'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Center)
+        .padding({ top: 4, bottom: 4 })
+        .onClick(() => {
+          onTap();
+        })
+      }
     }
     .layoutWeight(1)
     .alignItems(HorizontalAlign.Center)
-    .justifyContent(FlexAlign.Center)
-    .onClick(() => {
-      onTap();
-    })
   }
   /**
    * 播放模式按钮（工具栏第二项）。

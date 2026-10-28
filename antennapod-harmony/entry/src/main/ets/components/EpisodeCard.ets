@@ -1,4 +1,5 @@
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLight } from '../common/PressLight';
 import { FeedCover } from './FeedCover';
 import { EventHub, EventType } from '../events/EventHub';
 import { PlayerManager } from '../player/PlayerManager';
@@ -80,6 +81,9 @@ export struct EpisodeCard {
   effectiveProgress(): number {
     return this.liveProgress >= 0 ? this.liveProgress : this.progress;
   }
+  /** 按压光感（HDS point light） */
+  @State private lightPressed: boolean = false;
+
   build() {
     Column() {
       // 封面 + 叠在封面内部底边的进度条（圆角裁切，进度条不超出封面）
@@ -127,6 +131,15 @@ export struct EpisodeCard {
     .width(DesignTokens.COVER_HOME_CARD)
     // 不再有卡片底色 / 圆角 / 外框：封面 + 标题 + 日期直接落在页面背景上
     .alignItems(HorizontalAlign.Start)
+    .visualEffect(PressLight.effect(this.lightPressed))
+    .animation({ duration: 150, curve: Curve.EaseOut })
+    .onTouch((event: TouchEvent): void => {
+      if (event.type === TouchType.Down) {
+        this.lightPressed = true;
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.lightPressed = false;
+      }
+    })
     .onClick(() => {
       this.onTap();
     })

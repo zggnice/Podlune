@@ -1,4 +1,5 @@
 import { DesignTokens } from '../common/DesignTokens';
+import { PressLight } from '../common/PressLight';
 
 /**
  * 圆形图标按钮（HarmonyOS 图标按钮规范）：
@@ -20,6 +21,9 @@ export struct AppIconButton {
   onTap: () => void = () => {
   };
 
+  /** 按压光感（HDS point light）：按下点亮边框与内容，松手熄灭 */
+  @State private lightPressed: boolean = false;
+
   build() {
     Stack({ alignContent: Alignment.End }) {
       Stack() {
@@ -32,6 +36,15 @@ export struct AppIconButton {
       .borderRadius(DesignTokens.HIT_MIN / 2)
       .backgroundColor(this.bg)
       .alignContent(Alignment.Center)
+      .visualEffect(PressLight.effect(this.lightPressed))
+      .animation({ duration: 150, curve: Curve.EaseOut })
+      .onTouch((event: TouchEvent): void => {
+        if (event.type === TouchType.Down) {
+          this.lightPressed = true;
+        } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+          this.lightPressed = false;
+        }
+      })
       .onClick(() => {
         this.onTap();
       })
