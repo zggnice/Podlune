@@ -329,6 +329,19 @@ export class UserPreferences {
     UserPreferences.getPrefs().flush();
   }
 
+  /**
+   * 实验性：公开 RSS 停更时，从平台网页补全最新条目（默认关闭）。
+   * 具体实现见 `services/XiaoyuzhouSupplement.ets`。
+   */
+  static getSupplementStaleFeeds(): boolean {
+    return UserPreferences.getPrefs().getSync('prefSupplementStaleFeeds', false) as boolean;
+  }
+
+  static setSupplementStaleFeeds(value: boolean): void {
+    UserPreferences.getPrefs().putSync('prefSupplementStaleFeeds', value);
+    UserPreferences.getPrefs().flush();
+  }
+
   // ---- 滑动动作（对照上游 SwipeActions.PREF_NAME = SwipeActionsPrefs）----
   // 存 'RIGHT,LEFT' 两个动作 id；noAction = 「启用滑动动作」开关（上游 KEY_PREFIX_NO_ACTION，默认 true）。
 

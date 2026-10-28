@@ -2851,6 +2851,10 @@
     {
       "name": "feed_notice_xiaoyuzhou_155",
       "value": "(Episodes after #155 are exclusive to Xiaoyuzhou)"
+    },
+    {
+      "name": "setting_supplement_stale",
+      "value": "Supplement stale feeds from platform web page (experimental)"
     }
   ]
 }

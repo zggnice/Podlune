@@ -11,6 +11,7 @@ import { FeedFetcher, FeedNotModifiedError } from './FeedFetcher';
 import { NotificationService, FeedNotificationEntry } from './NotificationService';
 import { AutoDownloadService } from './AutoDownloadService';
 import { UserPreferences } from '../prefs/UserPreferences';
+import { XiaoyuzhouSupplement } from './XiaoyuzhouSupplement';
 import { EventHub, EventType, FeedUpdateData, RefreshStateData } from '../events/EventHub';
 import { InboxBaseline } from '../utils/InboxBaseline';
 import { Logger } from '../utils/Logger';
@@ -106,6 +107,8 @@ export class RefreshService {
           // 这一次抓取就是它的首次订阅：源里全是订阅前既有的历史内容，未带日期的单集也不进收件箱。
           const firstFetch: boolean = feed.lastRefreshAttempt <= 0;
           const merge: MergeResult = await RefreshService.mergeFeed(feed, result.feed, firstFetch);
+          // 公开 RSS 停更时，按设置开关从平台网页补全最新条目（失败静默）
+          const supplemented: number = await XiaoyuzhouSupplement.trySupplement(feed);
           // 首次抓取（= 批量导入刚登记、或从未成功抓取过）不按「新单集」处理：这一轮收录的是整源
           // 历史内容，既不该发「N 个新单集」通知，也不该触发自动下载 / 自动入队
           if (!firstFetch && merge.count > 0) {
@@ -113,7 +116,7 @@ export class RefreshService {
             await RefreshService.applyNewEpisodesAction(feed, merge.added);
             await AutoDownloadService.onNewItems(feed, merge.added);
           }
-          return merge.count;
+          return merge.count + supplemented;
         } catch (error) {
           if (error instanceof FeedNotModifiedError) {
             // 304：内容没变。不解析、不入库、不算失败，也不算新单集。
@@ -166,7 +169,7 @@ export class RefreshService {
     let nextLink: string = '';
     const visited: Set<string> = new Set<string>();
     while (page < MAX_PAGES) {
-      await RefreshService.insertNewItems(existing, current, filter, existingIds, existingById, added,
+      await RefreshService.insertNewItems(existing, current.items, filter, existingIds, existingById, added,
         initialSubscribe);
       nextLink = current.isPaged ? current.nextPageLink : '';
       page++;
@@ -198,10 +201,10 @@ export class RefreshService {
   }
 
   /** 把一页解析结果中的新单集写入数据库（去重沿用 existingIds） */
-  private static async insertNewItems(existing: Feed, page: Feed, filter: FeedFilter,
+  private static async insertNewItems(existing: Feed, items: FeedItem[], filter: FeedFilter,
                                        existingIds: Set<string>, existingById: Map<string, FeedItem>,
                                        added: FeedItem[], initialSubscribe: boolean): Promise<void> {
-    for (const item of page.items) {
+    for (const item of items) {
       if (item.itemIdentifier === '') {
         continue;
       }
@@ -228,6 +231,34 @@ export class RefreshService {
       }
       added.push(item);
     }
+  }
+
+  /**
+   * 把「外部补全」得到的条目合并进某个订阅（去重、过滤、落库都复用刷新路径）。
+   *
+   * 目前只有 `XiaoyuzhouSupplement` 使用：公开 RSS 停更时从平台网页拿到的最新条目。
+   * `initialSubscribe = true`：补进来的是历史条目，不灌收件箱，一律落「未播放」。
+   */
+  static async mergeSupplementItems(existing: Feed, items: FeedItem[]): Promise<MergeResult> {
+    const added: FeedItem[] = [];
+    if (items.length === 0) {
+      return { count: 0, added: added };
+    }
+    const existingItems: FeedItem[] = await EpisodeRepository.listByFeed(existing.id, false);
+    const existingIds: Set<string> = new Set<string>();
+    const existingById: Map<string, FeedItem> = new Map<string, FeedItem>();
+    for (const item of existingItems) {
+      if (item.itemIdentifier !== '') {
+        existingIds.add(item.itemIdentifier);
+        existingById.set(item.itemIdentifier, item);
+      }
+    }
+    const filter: FeedFilter = new FeedFilter(
+      existing.includeFilter, existing.excludeFilter, existing.minimalDurationFilter);
+    await RefreshService.insertNewItems(existing, items, filter, existingIds, existingById, added, true);
+    existing.lastRefreshAttempt = Date.now();
+    await FeedRepository.update(existing);
+    return { count: added.length, added: added };
   }
 
   /**
@@ -266,11 +297,16 @@ export class RefreshService {
     }
     const result = await FeedFetcher.fetchFeed(feed.downloadUrl, feed.username, feed.password);
     const merge: MergeResult = await RefreshService.mergeFeed(feed, result.feed);
+    // 公开 RSS 停更时，按设置开关从平台网页补全最新条目（失败静默）
+    const supplemented: number = await XiaoyuzhouSupplement.trySupplement(feed);
     if (merge.count > 0) {
       const notifications: FeedNotificationEntry[] = [{ title: feed.getTitle(), count: merge.count }];
       await NotificationService.notifyNewEpisodesByFeed(notifications);
       await RefreshService.applyNewEpisodesAction(feed, merge.added);
       await AutoDownloadService.onNewItems(feed, merge.added);
+    }
+    if (supplemented > 0) {
+      RefreshService.publishFeedListUpdate();
     }
     RefreshService.publishFeedListUpdate();
     return merge.count;
