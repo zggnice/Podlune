@@ -8,6 +8,7 @@ import { window } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { DbManager } from '../db/DbManager';
+import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { CuratedFeedService } from '../services/CuratedFeedService';
 import { DownloadManager } from '../download/DownloadManager';
@@ -88,6 +89,10 @@ export default class EntryAbility extends UIAbility {
     FeedValidators.init(this.context);
     BookmarkStore.init(this.context);
       hilog.info(0x0000, TAG, 'DbManager init ok');
+      // 修正历史遗留：补全条目把「秒」当毫秒存，导致卡片/详情时长显示 0:03
+      EpisodeRepository.fixSupplementDurations().catch((error: Error) => {
+        hilog.warn(0x0000, TAG, 'fixSupplementDurations failed: %{public}s', error.message);
+      });
       this.loadIndex(windowStage);
     }).catch((error: Error) => {
       hilog.error(0x0000, TAG, 'DbManager init failed: %{public}s', error.message);

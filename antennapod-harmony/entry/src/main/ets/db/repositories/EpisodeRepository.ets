@@ -1,6 +1,7 @@
 // Port of: storage/database/DBReader.java + DBWriter.java (episodes/media operations)
 import relationalStore from '@ohos.data.relationalStore';
 import { DbManager } from '../DbManager';
+import { Logger } from '../../utils/Logger';
 import { TABLE_FEED_ITEMS, TABLE_FEED_MEDIA, TABLE_FEEDS, TABLE_QUEUE, TABLE_FAVORITES } from '../Tables';
 import { FeedItem } from '../../model/FeedItem';
 import { FeedMedia } from '../../model/FeedMedia';
@@ -349,6 +350,46 @@ export class EpisodeRepository {
       image_url: imageUrl
     };
     await DbManager.getStore().update(values, predicates);
+  }
+
+  /**
+   * 一次性修复：早期补全把「秒」直接写进了 `duration`（库内其余数据都是毫秒），
+   * 表现为卡片/详情显示 0:03、0:04，播放器加载后才显示真实时长。
+   *
+   * 只处理可疑值（`0 < duration < 10000`，即小于 10 秒）且音频来自小宇宙 CDN 的行，
+   * 乘 1000 还原成毫秒。重复执行是幂等的（修好后 duration 会 > 10000）。
+   *
+   * @returns 修复的行数
+   */
+  static async fixSupplementDurations(): Promise<number> {
+    const rs: relationalStore.ResultSet = await DbManager.querySql(
+      `SELECT id, duration FROM ${TABLE_FEED_MEDIA}
+       WHERE duration > 0 AND duration < 10000 AND download_url LIKE '%xyzcdn.net%'`);
+    const ids: number[] = [];
+    const durations: number[] = [];
+    if (rs.goToFirstRow()) {
+      do {
+        ids.push(rs.getLong(rs.getColumnIndex('id')));
+        durations.push(rs.getLong(rs.getColumnIndex('duration')));
+      } while (rs.goToNextRow());
+    }
+    rs.close();
+    if (ids.length === 0) {
+      return 0;
+    }
+    const store: relationalStore.RdbStore = DbManager.getStore();
+    let fixed: number = 0;
+    for (let i: number = 0; i < ids.length; i++) {
+      const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TABLE_FEED_MEDIA);
+      predicates.equalTo('id', ids[i]);
+      const values: relationalStore.ValuesBucket = { duration: durations[i] * 1000 };
+      const changed: number = await store.update(values, predicates);
+      if (changed > 0) {
+        fixed++;
+      }
+    }
+    Logger.info('EpisodeRepository', 'fixed ' + fixed + ' supplemented durations (s -> ms)');
+    return fixed;
   }
 
   static async updateImageUrl(itemId: number, imageUrl: string): Promise<void> {
