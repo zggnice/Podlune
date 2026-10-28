@@ -18,6 +18,7 @@ import { Logger } from '../utils/Logger';
 import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
 import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
 import { RefreshService } from '../services/RefreshService';
+import { XiaoyuzhouSupplement } from '../services/XiaoyuzhouSupplement';
 import { FeedFetcher } from '../services/FeedFetcher';
 import { SubscriptionService } from '../services/SubscriptionService';
 import { AutoDownloadService } from '../services/AutoDownloadService';
@@ -151,6 +152,11 @@ struct FeedDetailPage {
   @State filterExclude: string = '';
   @State filterMinDuration: string = '';
   @State showStreamConfirm: boolean = false;
+  /** 从链接补全单集（手动粘贴小宇宙单集链接） */
+  @State showLinkSheet: boolean = false;
+  @State linkText: string = '';
+  @State linkBusy: boolean = false;
+  @State linkMessage: string = '';
   /** 剧集列表左右滑动作 id（对照上游 SwipeActions.getSwipeActions；设置页保存后重新解析） */
   @State swipeRightId: string = SwipeActionId.NONE;
   @State swipeLeftId: string = SwipeActionId.NONE;
@@ -366,6 +372,9 @@ struct FeedDetailPage {
       if (this.showStreamConfirm) {
         this.streamConfirmSheet()
       }
+      if (this.showLinkSheet) {
+        this.linkSheet()
+      }
 
 
     }
@@ -412,6 +421,11 @@ struct FeedDetailPage {
       MenuItem({ symbolStartIcon: menuIcon($r('sys.symbol.arrow_clockwise')), content: $r('app.string.refresh_label') })
         .onClick(() => {
           this.refreshFeed();
+        })
+      MenuItem({ symbolStartIcon: menuIcon($r('sys.symbol.link')), content: $r('app.string.feed_supplement_links') })
+        .onClick(() => {
+          this.linkMessage = '';
+          this.showLinkSheet = true;
         })
       MenuItem({ symbolStartIcon: menuIcon($r('sys.symbol.funnel')), content: $r('app.string.feed_filter') })
         .onClick(() => {
@@ -470,6 +484,101 @@ struct FeedDetailPage {
     .width('100%')
     .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
+  }
+
+  /** 从链接补全单集：粘贴小宇宙单集链接，逐条抓取并入到本订阅 */
+  @Builder
+  linkSheet() {
+    Column({ space: DesignTokens.SPACE_M }) {
+      Text($r('app.string.feed_supplement_links_title')).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_SUBTITLE)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+
+      Text($r('app.string.feed_supplement_links_hint')).fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_FOOTNOTE)
+        .fontColor($r('app.color.text_tertiary'))
+        .width('100%')
+
+      TextArea({ text: this.linkText, placeholder: $r('app.string.feed_supplement_links_placeholder') })
+        .fontFamily(this.appFontFamily)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .height(140)
+        .width('100%')
+        .backgroundColor($r('app.color.surface_secondary'))
+        .borderRadius(12)
+        .onChange((value: string) => {
+          this.linkText = value;
+        })
+
+      if (this.linkMessage !== '') {
+        Text(this.linkMessage).fontFamily(this.appFontFamily)
+          .fontSize(DesignTokens.FONT_FOOTNOTE)
+          .fontColor($r('app.color.text_secondary'))
+          .width('100%')
+      }
+
+      Row({ space: DesignTokens.SPACE_M }) {
+        Button($r('app.string.dialog_cancel'))
+          .layoutWeight(1)
+          .height(DesignTokens.HEIGHT_BUTTON)
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .backgroundColor($r('app.color.surface_secondary'))
+          .fontColor($r('app.color.text_primary'))
+          .onClick(() => {
+            this.showLinkSheet = false;
+          })
+        Button(this.linkBusy ? $r('app.string.feed_supplement_links_busy')
+          : $r('app.string.feed_supplement_links_apply'))
+          .layoutWeight(1)
+          .height(DesignTokens.HEIGHT_BUTTON)
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .backgroundColor($r('app.color.primary'))
+          .fontColor($r('app.color.on_primary'))
+          .enabled(!this.linkBusy)
+          .onClick(() => {
+            this.applyLinks();
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({
+      left: DesignTokens.PAGE_MARGIN,
+      right: DesignTokens.PAGE_MARGIN,
+      top: DesignTokens.SPACE_L,
+      bottom: DesignTokens.SPACE_XL + 24
+    })
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
+  }
+
+  /** 提交粘贴的链接：抓取 → 去重入库 → 刷新列表 */
+  private async applyLinks(): Promise<void> {
+    if (this.feed === undefined || this.linkBusy) {
+      return;
+    }
+    this.linkBusy = true;
+    this.linkMessage = '';
+    try {
+      const added: number = await XiaoyuzhouSupplement.addFromLinks(this.feed, this.linkText);
+      if (added > 0) {
+        this.linkMessage = getContext(this).resourceManager
+          .getStringSync($r('app.string.feed_supplement_links_done')) + added.toString();
+        this.linkText = '';
+        await this.loadEpisodes();
+        const data: FeedUpdateData = { feedId: this.feed.id };
+        EventHub.publish(EventType.FEED_LIST_UPDATE, data);
+      } else {
+        this.linkMessage = getContext(this).resourceManager
+          .getStringSync($r('app.string.feed_supplement_links_empty'));
+      }
+    } catch (error) {
+      this.linkMessage = (error as Error).message;
+    } finally {
+      this.linkBusy = false;
+    }
   }
 
   /** 同一 List 的头部：背景绝对定位于头部内，高度由封面、简介等内容实测决定。 */

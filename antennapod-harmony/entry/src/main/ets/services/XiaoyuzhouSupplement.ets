@@ -71,6 +71,93 @@ export class XiaoyuzhouSupplement {
     }
   }
 
+
+  /** 手动补全最多一次处理多少条链接（防止误粘几百行把网络打满） */
+  private static readonly MAX_LINKS: number = 50;
+
+  /**
+   * 手动补全：解析用户粘贴的小宇宙单集链接，逐条抓取单集页并入到该订阅。
+   *
+   * 与自动补全的区别：允许插入比库里更早的条目（补历史空档），仍然按标题去重、
+   * 仍然只写「未播放」，不进收件箱。封面取 `image.picUrl`，正文取 `shownotes` → `description`。
+   *
+   * @returns 实际新增的条目数
+   */
+  static async addFromLinks(feed: Feed, text: string): Promise<number> {
+    const urls: string[] = XiaoyuzhouSupplement.extractEpisodeUrls(text);
+    if (urls.length === 0) {
+      return 0;
+    }
+    const items: FeedItem[] = [];
+    for (const url of urls) {
+      try {
+        const response: HttpResponse = await HttpClient.get(url,
+          { 'User-Agent': 'Mozilla/5.0 (Linux; HarmonyOS) Podlune/1.0' }, XiaoyuzhouSupplement.TIMEOUT_MS);
+        const item: FeedItem | undefined = XiaoyuzhouSupplement.parseEpisodePage(response.body, feed, url);
+        if (item !== undefined) {
+          items.push(item);
+        }
+      } catch (error) {
+        Logger.warn(TAG, 'episode link failed ' + url + ': ' + (error as Error).message);
+      }
+    }
+    if (items.length === 0) {
+      return 0;
+    }
+    const merge: MergeResult = await RefreshService.mergeSupplementItems(feed, items, true);
+    Logger.info(TAG, 'manual supplement feed ' + feed.id + ' +' + merge.count + ' / ' + items.length);
+    return merge.count;
+  }
+
+  /** 从一段文本里提取单集链接（支持换行 / 空格 / 逗号分隔，自动去重） */
+  private static extractEpisodeUrls(text: string): string[] {
+    const output: string[] = [];
+    const parts: string[] = text.split(/[\s,，]+/);
+    for (const raw of parts) {
+      const value: string = raw.trim();
+      if (!value.includes('/episode/')) {
+        continue;
+      }
+      const normalized: string = value.startsWith('http') ? value
+        : (value.startsWith('www.') ? 'https://' + value : '');
+      if (normalized === '' || output.includes(normalized)) {
+        continue;
+      }
+      output.push(normalized);
+      if (output.length >= XiaoyuzhouSupplement.MAX_LINKS) {
+        break;
+      }
+    }
+    return output;
+  }
+
+  /** 解析单集页 `pageProps.episode` */
+  private static parseEpisodePage(html: string, feed: Feed, url: string): FeedItem | undefined {
+    const open: number = html.indexOf('id="__NEXT_DATA__"');
+    if (open < 0) {
+      return undefined;
+    }
+    const jsonStart: number = html.indexOf('>', open);
+    const jsonEnd: number = html.indexOf('</script>', jsonStart);
+    if (jsonStart < 0 || jsonEnd < 0) {
+      return undefined;
+    }
+    const root: Record<string, Object> = JSON.parse(html.substring(jsonStart + 1, jsonEnd)) as Record<string, Object>;
+    const props: Record<string, Object> = root['props'] as Record<string, Object>;
+    if (props === undefined) {
+      return undefined;
+    }
+    const pageProps: Record<string, Object> = props['pageProps'] as Record<string, Object>;
+    if (pageProps === undefined) {
+      return undefined;
+    }
+    const episode: Record<string, Object> = pageProps['episode'] as Record<string, Object>;
+    if (episode === undefined) {
+      return undefined;
+    }
+    return XiaoyuzhouSupplement.buildItem(episode, feed, url);
+  }
+
   /** 从 RSS channel link 里取小宇宙播客 id（形如 .../podcast/<24 位十六进制>） */
   private static podcastId(link: string): string {
     const marker: string = '/podcast/';
@@ -84,6 +171,71 @@ export class XiaoyuzhouSupplement {
       tail = tail.substring(0, cut);
     }
     return tail.length === 24 ? tail : '';
+  }
+
+
+  /**
+   * 由一条小宇宙单集记录构造 FeedItem（列表页与单集页共用）。
+   *
+   * @param linkUrl 单集页地址；为空时用 `/episode/<eid>` 拼一个
+   */
+  private static buildItem(item: Record<string, Object>, feed: Feed,
+                           linkUrl: string): FeedItem | undefined {
+    if (item === undefined || item === null) {
+      return undefined;
+    }
+    const eid: string = item['eid'] !== undefined ? String(item['eid']) : '';
+    const title: string = item['title'] !== undefined ? String(item['title']) : '';
+    const enclosure: Record<string, Object> = item['enclosure'] as Record<string, Object>;
+    const audioUrl: string = enclosure !== undefined && enclosure['url'] !== undefined
+      ? String(enclosure['url']) : '';
+    if (eid === '' || title === '' || audioUrl === '') {
+      return undefined;
+    }
+    const pubDateText: string = item['pubDate'] !== undefined ? String(item['pubDate']) : '';
+    const pubDateRaw: number = pubDateText === '' ? 0 : Date.parse(pubDateText);
+    // 小宇宙的 duration 是**秒**，库里（RSS 解析结果）统一用**毫秒**：
+    // 不换算会让列表显示成「0:03」这种 3 秒时长。
+    const durationText: string = item['duration'] !== undefined ? String(item['duration']) : '0';
+    const durationSeconds: number = Number(durationText);
+    const durationMs: number = Number.isFinite(durationSeconds) && durationSeconds > 0
+      ? Math.round(durationSeconds * 1000) : 0;
+    const episodeLink: string = linkUrl !== '' ? linkUrl
+      : 'https://www.xiaoyuzhoufm.com/episode/' + eid;
+    return new FeedItem({
+      id: 0,
+      title: title,
+      pubDate: Number.isFinite(pubDateRaw) ? pubDateRaw : 0,
+      isPlayed: false,
+      playState: FeedItem.UNPLAYED,
+      link: episodeLink,
+      description: XiaoyuzhouSupplement.episodeText(item['shownotes'], item['description']),
+      paymentLink: '',
+      media: new FeedMedia({
+        id: 0,
+        duration: durationMs,
+        fileUrl: '',
+        downloadUrl: audioUrl,
+        downloadDate: 0,
+        position: 0,
+        size: 0,
+        mimeType: 'audio/mp4',
+        lastPlayedTimeHistory: 0,
+        feedItemId: 0,
+        playedDuration: 0,
+        hasEmbeddedPicture: false,
+        lastPlayedTimeStatistics: 0
+      }),
+      feedId: feed.id,
+      hasChapters: false,
+      itemIdentifier: 'xz:' + eid,
+      imageUrl: XiaoyuzhouSupplement.episodeImage(item['image'], feed.imageUrl),
+      autoDownloadEnabled: false,
+      podcastIndexChapterUrl: '',
+      podcastIndexTranscriptType: '',
+      podcastIndexTranscriptUrl: '',
+      socialInteractUrl: ''
+    });
   }
 
   /**
@@ -160,55 +312,11 @@ export class XiaoyuzhouSupplement {
       if (output.length >= XiaoyuzhouSupplement.MAX_ITEMS) {
         break;
       }
-      const item: Record<string, Object> = entry as Record<string, Object>;
-      const eid: string = item['eid'] !== undefined ? String(item['eid']) : '';
-      const title: string = item['title'] !== undefined ? String(item['title']) : '';
-      const enclosure: Record<string, Object> = item['enclosure'] as Record<string, Object>;
-      const audioUrl: string = enclosure !== undefined && enclosure['url'] !== undefined
-        ? String(enclosure['url']) : '';
-      if (eid === '' || title === '' || audioUrl === '') {
-        continue;
+      const built: FeedItem | undefined = XiaoyuzhouSupplement.buildItem(
+        entry as Record<string, Object>, feed, '');
+      if (built !== undefined) {
+        output.push(built);
       }
-      const pubDateText: string = item['pubDate'] !== undefined ? String(item['pubDate']) : '';
-      const pubDate: number = pubDateText === '' ? 0 : Date.parse(pubDateText);
-      const durationText: string = item['duration'] !== undefined ? String(item['duration']) : '0';
-      const duration: number = Number(durationText);
-      const imageUrl: string = XiaoyuzhouSupplement.episodeImage(item['image'], feed.imageUrl);
-      output.push(new FeedItem({
-        id: 0,
-        title: title,
-        pubDate: Number.isFinite(pubDate) ? pubDate : 0,
-        isPlayed: false,
-        playState: FeedItem.UNPLAYED,
-        link: XiaoyuzhouSupplement.PAGE_BASE.replace('/podcast/', '/episode/') + eid,
-        description: XiaoyuzhouSupplement.episodeText(item['shownotes'], item['description']),
-        paymentLink: '',
-        media: new FeedMedia({
-          id: 0,
-          duration: Number.isFinite(duration) ? duration : 0,
-          fileUrl: '',
-          downloadUrl: audioUrl,
-          downloadDate: 0,
-          position: 0,
-          size: 0,
-          mimeType: 'audio/mp4',
-          lastPlayedTimeHistory: 0,
-          feedItemId: 0,
-          playedDuration: 0,
-          hasEmbeddedPicture: false,
-          lastPlayedTimeStatistics: 0
-        }),
-        feedId: feed.id,
-        hasChapters: false,
-        // 用平台 eid 作为去重标识：与 RSS 的 guid 不冲突，也不会重复插入
-        itemIdentifier: 'xz:' + eid,
-        imageUrl: imageUrl,
-        autoDownloadEnabled: false,
-        podcastIndexChapterUrl: '',
-        podcastIndexTranscriptType: '',
-        podcastIndexTranscriptUrl: '',
-        socialInteractUrl: ''
-      }));
     }
     return output;
   }

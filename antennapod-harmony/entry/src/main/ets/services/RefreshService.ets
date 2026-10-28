@@ -226,8 +226,14 @@ export class RefreshService {
       item.id = itemId;
       if (item.media !== undefined) {
         item.media.feedItemId = itemId;
-        const mediaId: number = await EpisodeRepository.insertMedia(item.media);
-        item.media.id = mediaId;
+        try {
+          const mediaId: number = await EpisodeRepository.insertMedia(item.media);
+          item.media.id = mediaId;
+        } catch (error) {
+          // 单条媒体写失败不能中断整批：否则它后面的条目全部丢失，
+          // 且这条只留下「有单集、没音频」的坏行（表现为点播放没反应）。
+          Logger.warn(TAG, 'insert media failed for item ' + itemId + ': ' + (error as Error).message);
+        }
       }
       added.push(item);
     }
@@ -239,7 +245,8 @@ export class RefreshService {
    * 目前只有 `XiaoyuzhouSupplement` 使用：公开 RSS 停更时从平台网页拿到的最新条目。
    * `initialSubscribe = true`：补进来的是历史条目，不灌收件箱，一律落「未播放」。
    */
-  static async mergeSupplementItems(existing: Feed, items: FeedItem[]): Promise<MergeResult> {
+  static async mergeSupplementItems(existing: Feed, items: FeedItem[],
+                                    allowOlder: boolean = false): Promise<MergeResult> {
     const added: FeedItem[] = [];
     if (items.length === 0) {
       return { count: 0, added: added };
@@ -268,7 +275,9 @@ export class RefreshService {
     const fresh: FeedItem[] = [];
     for (const item of items) {
       const duplicateTitle: boolean = existingTitles.has(item.title.trim());
-      if (item.pubDate > maxPubDate && !duplicateTitle) {
+      // 自动补全只收「比库里更新」的；手动粘贴链接时允许补历史空档（allowOlder）
+      const qualified: boolean = allowOlder || item.pubDate > maxPubDate;
+      if (qualified && !duplicateTitle) {
         fresh.push(item);
         continue;
       }
@@ -281,6 +290,15 @@ export class RefreshService {
           await EpisodeRepository.updateSupplementFields(known.id,
             badText && item.description !== 'null' ? item.description : known.description,
             badImage ? item.imageUrl : known.imageUrl);
+        }
+        // 早期版本可能只写进单集、没写进媒体（时长/音频都缺）：这里补一条
+        if (known.media === undefined && item.media !== undefined) {
+          item.media.feedItemId = known.id;
+          try {
+            await EpisodeRepository.insertMedia(item.media);
+          } catch (error) {
+            Logger.warn(TAG, 'repair media failed for item ' + known.id + ': ' + (error as Error).message);
+          }
         }
       }
     }

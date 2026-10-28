@@ -2855,6 +2855,38 @@
     {
       "name": "setting_supplement_stale",
       "value": "Supplement stale feeds from platform web page (experimental)"
+    },
+    {
+      "name": "feed_supplement_links",
+      "value": "Add episodes from links"
+    },
+    {
+      "name": "feed_supplement_links_title",
+      "value": "Paste Xiaoyuzhou episode links"
+    },
+    {
+      "name": "feed_supplement_links_hint",
+      "value": "One link per line; only the current podcast is updated, existing episodes are skipped."
+    },
+    {
+      "name": "feed_supplement_links_placeholder",
+      "value": "https://www.xiaoyuzhoufm.com/episode/…"
+    },
+    {
+      "name": "feed_supplement_links_apply",
+      "value": "Add"
+    },
+    {
+      "name": "feed_supplement_links_busy",
+      "value": "Adding…"
+    },
+    {
+      "name": "feed_supplement_links_done",
+      "value": "Added "
+    },
+    {
+      "name": "feed_supplement_links_empty",
+      "value": "Nothing added: invalid links, or these episodes already exist"
     }
   ]
 }
