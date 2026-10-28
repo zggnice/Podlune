@@ -87,6 +87,42 @@ export class XiaoyuzhouSupplement {
   }
 
   /**
+   * 单集封面：小宇宙给的 `image` 是对象（`{ picUrl }`），直接 String() 会得到
+   * "[object Object]" 而加载失败；取不到时回落到播客封面。
+   */
+  private static episodeImage(raw: Object | undefined, feedImage: string): string {
+    if (raw === undefined || raw === null) {
+      return feedImage;
+    }
+    if (typeof raw === 'string') {
+      const text: string = raw as string;
+      return text === '' || text === 'null' ? feedImage : text;
+    }
+    const record: Record<string, Object> = raw as Record<string, Object>;
+    const pic: Object | undefined = record['picUrl'];
+    if (pic !== undefined && pic !== null) {
+      const url: string = String(pic);
+      if (url !== '' && url !== 'null') {
+        return url;
+      }
+    }
+    return feedImage;
+  }
+
+  /**
+   * 单集正文：`shownotes` 经常是空字符串，真正的内容在 `description`；
+   * 两者都空时返回空串（详情页只显示标题与音频，不会出现 "null"）。
+   */
+  private static episodeText(shownotes: Object | undefined, description: Object | undefined): string {
+    const notes: string = shownotes === undefined || shownotes === null ? '' : String(shownotes);
+    if (notes !== '' && notes !== 'null') {
+      return notes;
+    }
+    const desc: string = description === undefined || description === null ? '' : String(description);
+    return desc === 'null' ? '' : desc;
+  }
+
+  /**
    * 解析页面里的 `__NEXT_DATA__`，产出待补全的条目。
    *
    * 只取公开首屏给到的 `podcast.episodes`；跳过没有音频地址或标题为空的条目。
@@ -137,7 +173,7 @@ export class XiaoyuzhouSupplement {
       const pubDate: number = pubDateText === '' ? 0 : Date.parse(pubDateText);
       const durationText: string = item['duration'] !== undefined ? String(item['duration']) : '0';
       const duration: number = Number(durationText);
-      const imageUrl: string = item['image'] !== undefined ? String(item['image']) : feed.imageUrl;
+      const imageUrl: string = XiaoyuzhouSupplement.episodeImage(item['image'], feed.imageUrl);
       output.push(new FeedItem({
         id: 0,
         title: title,
@@ -145,8 +181,7 @@ export class XiaoyuzhouSupplement {
         isPlayed: false,
         playState: FeedItem.UNPLAYED,
         link: XiaoyuzhouSupplement.PAGE_BASE.replace('/podcast/', '/episode/') + eid,
-        description: item['shownotes'] !== undefined ? String(item['shownotes'])
-          : (item['description'] !== undefined ? String(item['description']) : ''),
+        description: XiaoyuzhouSupplement.episodeText(item['shownotes'], item['description']),
         paymentLink: '',
         media: new FeedMedia({
           id: 0,

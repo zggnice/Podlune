@@ -247,15 +247,44 @@ export class RefreshService {
     const existingItems: FeedItem[] = await EpisodeRepository.listByFeed(existing.id, false);
     const existingIds: Set<string> = new Set<string>();
     const existingById: Map<string, FeedItem> = new Map<string, FeedItem>();
+    const existingTitles: Set<string> = new Set<string>();
+    let maxPubDate: number = 0;
     for (const item of existingItems) {
       if (item.itemIdentifier !== '') {
         existingIds.add(item.itemIdentifier);
         existingById.set(item.itemIdentifier, item);
       }
+      if (item.title !== '') {
+        existingTitles.add(item.title.trim());
+      }
+      if (item.pubDate > maxPubDate) {
+        maxPubDate = item.pubDate;
+      }
     }
     const filter: FeedFilter = new FeedFilter(
       existing.includeFilter, existing.excludeFilter, existing.minimalDurationFilter);
-    await RefreshService.insertNewItems(existing, items, filter, existingIds, existingById, added, true);
+    // 只补「比库里最新一期更新」且标题不重复的条目：
+    // RSS 已是最新时这里只做脏数据修复，不会再插重复行。
+    const fresh: FeedItem[] = [];
+    for (const item of items) {
+      const duplicateTitle: boolean = existingTitles.has(item.title.trim());
+      if (item.pubDate > maxPubDate && !duplicateTitle) {
+        fresh.push(item);
+        continue;
+      }
+      // 已存在的补全条目：修复早期版本写坏的正文字段与封面
+      const known: FeedItem | undefined = existingById.get(item.itemIdentifier);
+      if (known !== undefined) {
+        const badImage: boolean = known.imageUrl === '' || known.imageUrl.includes('[object');
+        const badText: boolean = known.description === '' || known.description === 'null';
+        if (badImage || badText) {
+          await EpisodeRepository.updateSupplementFields(known.id,
+            badText && item.description !== 'null' ? item.description : known.description,
+            badImage ? item.imageUrl : known.imageUrl);
+        }
+      }
+    }
+    await RefreshService.insertNewItems(existing, fresh, filter, existingIds, existingById, added, true);
     existing.lastRefreshAttempt = Date.now();
     await FeedRepository.update(existing);
     return { count: added.length, added: added };

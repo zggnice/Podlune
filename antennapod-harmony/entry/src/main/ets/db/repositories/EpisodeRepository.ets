@@ -337,6 +337,20 @@ export class EpisodeRepository {
   }
 
   /** 只更新单集封面（刷新时纠正历史错误的封面 / 补上新增的单集封面） */
+  /**
+   * 外部补全条目的字段修复：早期补全把 `image` 对象写成 "[object Object]"、
+   * 把空 shownotes 写成 "null"。刷新时用正确解析值把这两列就地纠正。
+   */
+  static async updateSupplementFields(itemId: number, description: string, imageUrl: string): Promise<void> {
+    const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TABLE_FEED_ITEMS);
+    predicates.equalTo('id', itemId);
+    const values: relationalStore.ValuesBucket = {
+      description: description,
+      image_url: imageUrl
+    };
+    await DbManager.getStore().update(values, predicates);
+  }
+
   static async updateImageUrl(itemId: number, imageUrl: string): Promise<void> {
     const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TABLE_FEED_ITEMS);
     predicates.equalTo('id', itemId);
