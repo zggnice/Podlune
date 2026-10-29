@@ -432,7 +432,8 @@ export struct DownloadsPage {
   @Builder
   downloadRow(item: FeedItem) {
     EpisodeRow({
-      showMore: false,
+      rowItem: item,
+      showMore: true,
       // 与收件箱/收藏一致的参考图版式：左文字 + 右缩略图 + 时长胶囊 + 细分割线
       reference: true,
       title: this.rowItem(item).title,

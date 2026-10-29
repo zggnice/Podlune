@@ -594,7 +594,8 @@ export struct QueuePage {
   @Builder
   queueRow(item: FeedItem) {
     EpisodeRow({
-      showMore: false,
+      rowItem: item,
+      showMore: true,
       reference: true,
       title: this.rowItem(item).title,
       imageUrl: this.rowImage(item),

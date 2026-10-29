@@ -577,6 +577,7 @@ export struct EpisodesPage {
   @Builder
   episodeRow(item: FeedItem) {
     EpisodeRow({
+      rowItem: item,
       reference: true,
       title: item.title,
       subtitle: item.feedTitle,
@@ -597,7 +598,7 @@ export struct EpisodesPage {
       actionTint: this.filterMode === EpisodesPage.FILTER_FAVORITE
         ? $r('app.color.star') : $r('app.color.primary'),
       // 卡片右下角的「更多」按钮统一去掉（行本身就是可点的，菜单仍可长按进入）
-      showMore: false,
+      showMore: true,
       downloadProgress: this.downloadProgress(item),
       downloadIndeterminate: this.downloadIndeterminate(item),
       onTap: () => {

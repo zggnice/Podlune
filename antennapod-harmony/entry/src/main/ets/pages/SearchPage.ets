@@ -291,6 +291,7 @@ export struct SearchPage {
           ForEach(this.episodes, (item: FeedItem) => {
             ListItem() {
               EpisodeRow({
+      rowItem: item,
                 title: item.title,
                 imageUrl: item.imageUrl !== '' ? item.imageUrl : this.feedImage(item.feedId),
                 metaText: this.metaText(item),

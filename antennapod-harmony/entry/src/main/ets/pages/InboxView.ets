@@ -560,6 +560,7 @@ export struct InboxView {
   @Builder
   episodeRow(item: FeedItem) {
     EpisodeRow({
+      rowItem: item,
       showMore: false,
       title: item.title,
       imageUrl: item.imageUrl !== '' ? item.imageUrl : this.feedImage(item.feedId),

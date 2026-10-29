@@ -2887,6 +2887,10 @@
     {
       "name": "feed_supplement_links_empty",
       "value": "没有补到新单集：链接无效或这些单集已存在"
+    },
+    {
+      "name": "favorites_remove",
+      "value": "取消收藏"
     }
   ]
 }

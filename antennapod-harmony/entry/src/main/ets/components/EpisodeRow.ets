@@ -1,4 +1,7 @@
 import { DesignTokens } from '../common/DesignTokens';
+import { FeedItem } from '../model/FeedItem';
+import { EpisodeActions } from '../services/EpisodeActions';
+import { menuIcon } from '../common/MenuIcons';
 import { PressLight } from '../common/PressLight';
 import { FeedCover } from './FeedCover';
 
@@ -12,6 +15,11 @@ import { FeedCover } from './FeedCover';
 export struct EpisodeRow {
   /** 全局字体族：导入自定义字体后 AppStorage 一变，本 struct 内所有 Text 一起重绘 */
   @StorageProp('app_font_family') appFontFamily: string = 'HarmonyOS Sans';
+  /** 整行对应的数据对象：「更多」菜单需要它来执行收藏/队列/下载等动作 */
+  @Prop rowItem: FeedItem | undefined = undefined;
+  /** 菜单动作的结果提示（页面可传入自己的 toast） */
+  onMessage: (text: string) => void = () => {
+  };
   @Prop title: string = '';
   /** 副标题（订阅名），仅全库列表（Episodes 总表）使用，为空则不显示 */
   @Prop subtitle: string = '';
@@ -79,6 +87,8 @@ export struct EpisodeRow {
    * 本行仍留在列表里占住「将要落位」的槽位并负责接收手势）。
    */
   @State handleDragging: boolean = false;
+  /** 「更多」菜单里的收藏状态（进入行时回查一次） */
+  @State private favoriteOn: boolean = false;
   /**
    * 刚触发过长按：紧随其后的 onClick 要忽略。
    * `parallelGesture(LongPressGesture())` 与 `onClick` 同节点绑定时，同一次「按下—长按—抬起」
@@ -87,6 +97,10 @@ export struct EpisodeRow {
    */
   private longPressHandled: boolean = false;
   onTap: () => void = () => {
+  };
+  /** 右下角「更多」按钮：打开与节目详情页一致的操作面板（默认沿用 onAction 兼容旧页面） */
+  onMore: () => void = () => {
+    this.onAction();
   };
   onAction: () => void = () => {
   };
@@ -198,9 +212,7 @@ export struct EpisodeRow {
           .width(36)
           .height(36)
           .alignContent(Alignment.Center)
-          .onClick(() => {
-            this.onAction();
-          })
+          .bindMenu(this.rowItem !== undefined ? this.moreMenu() : this.emptyMenu())
         }
       }
       .width('100%')
@@ -265,6 +277,105 @@ export struct EpisodeRow {
     .onClick(() => {
       this.onAction();
     })
+  }
+
+  aboutToAppear(): void {
+    if (this.rowItem !== undefined) {
+      EpisodeActions.isFavorite(this.rowItem).then((value: boolean) => {
+        this.favoriteOn = value;
+      });
+    }
+  }
+
+  private textOf(resource: Resource): string {
+    try {
+      return getContext(this).resourceManager.getStringSync(resource);
+    } catch (error) {
+      return '';
+    }
+  }
+
+  @Builder
+  emptyMenu() {
+    Menu() {
+    }
+  }
+
+  /**
+   * 右下角「更多」菜单：与节目详情页的单集操作面板内容一致
+   * （标记已播 / 加入队列 / 收藏 / 分享 / 下载或删除下载）。
+   */
+  @Builder
+  moreMenu() {
+    Menu() {
+      MenuItem({
+        symbolStartIcon: menuIcon($r('sys.symbol.checkmark_circle')),
+        content: this.rowItem !== undefined && this.rowItem.isPlayed
+          ? $r('app.string.episode_mark_unplayed') : $r('app.string.episode_mark_played')
+      })
+        .onClick(() => {
+          if (this.rowItem === undefined) {
+            return;
+          }
+          EpisodeActions.togglePlayed(this.rowItem).catch((error: Error) => {
+            this.onMessage(error.message);
+          });
+        })
+      MenuItem({ symbolStartIcon: menuIcon($r('sys.symbol.music_note_list')), content: $r('app.string.episode_add_queue') })
+        .onClick(() => {
+          if (this.rowItem === undefined) {
+            return;
+          }
+          EpisodeActions.addToQueue(this.rowItem).then(() => {
+            this.onMessage(this.textOf($r('app.string.queue_added')));
+          }).catch((error: Error) => {
+            this.onMessage(error.message);
+          });
+        })
+      MenuItem({
+        symbolStartIcon: menuIcon(this.favoriteOn ? $r('sys.symbol.star_fill') : $r('sys.symbol.star')),
+        content: this.favoriteOn ? $r('app.string.favorites_remove') : $r('app.string.favorites_button')
+      })
+        .onClick(() => {
+          if (this.rowItem === undefined) {
+            return;
+          }
+          EpisodeActions.toggleFavorite(this.rowItem).then((next: boolean) => {
+            this.favoriteOn = next;
+          }).catch((error: Error) => {
+            this.onMessage(error.message);
+          });
+        })
+      MenuItem({ symbolStartIcon: menuIcon($r('sys.symbol.share')), content: $r('app.string.episode_share') })
+        .onClick(() => {
+          if (this.rowItem === undefined) {
+            return;
+          }
+          EpisodeActions.shareLink(this.rowItem, '').then((ok: boolean) => {
+            this.onMessage(this.textOf(ok ? $r('app.string.share_copied') : $r('app.string.share_no_link')));
+          }).catch((error: Error) => {
+            this.onMessage(error.message);
+          });
+        })
+      if (this.rowItem !== undefined && this.rowItem.media !== undefined) {
+        MenuItem({
+          symbolStartIcon: menuIcon(this.rowItem.media.fileUrl !== ''
+            ? $r('sys.symbol.trash') : $r('sys.symbol.arrow_down_circle')),
+          content: this.rowItem.media.fileUrl !== ''
+            ? $r('app.string.episode_delete_download') : $r('app.string.episode_download')
+        })
+          .onClick(() => {
+            if (this.rowItem === undefined) {
+              return;
+            }
+            const job: Promise<void> = this.rowItem.media !== undefined && this.rowItem.media.fileUrl !== ''
+              ? EpisodeActions.deleteDownload(this.rowItem) : EpisodeActions.startDownload(this.rowItem);
+            job.catch((error: Error) => {
+              this.onMessage(error.message);
+            });
+          })
+      }
+    }
   }
 
   build() {

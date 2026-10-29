@@ -19,6 +19,8 @@ import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
 import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
 import { RefreshService } from '../services/RefreshService';
 import { XiaoyuzhouSupplement } from '../services/XiaoyuzhouSupplement';
+import { EpisodeActionsSheet } from '../components/EpisodeActionsSheet';
+import { EpisodeActions } from '../services/EpisodeActions';
 import { FeedFetcher } from '../services/FeedFetcher';
 import { SubscriptionService } from '../services/SubscriptionService';
 import { AutoDownloadService } from '../services/AutoDownloadService';
@@ -149,6 +151,8 @@ struct FeedDetailPage {
   @State showFilterSheet: boolean = false;
   @State showActionSheet: boolean = false;
   @State actionTitle: string = '';
+  /** 当前操作单集的收藏状态（打开面板时回查） */
+  @State actionFavorite: boolean = false;
   @State filterInclude: string = '';
   @State filterExclude: string = '';
   @State filterMinDuration: string = '';
@@ -369,8 +373,8 @@ struct FeedDetailPage {
       if (this.showFilterSheet) {
         this.filterSheet()
       }
-      if (this.showActionSheet) {
-        this.actionSheet()
+      if (this.showActionSheet && this.actionItem !== undefined) {
+        this.episodeActionsSheet(this.actionItem!)
       }
       if (this.showStreamConfirm) {
         this.streamConfirmSheet()
@@ -1454,6 +1458,25 @@ struct FeedDetailPage {
     .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
     .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
+  }
+
+  @Builder
+  episodeActionsSheet(item: FeedItem) {
+    EpisodeActionsSheet({
+      item: item,
+      isFavorite: this.actionFavorite,
+      feedLink: this.feed === undefined ? '' : this.feed.link,
+      bottomSafe: this.bottomSafe,
+      onClose: () => {
+        this.showActionSheet = false;
+      },
+      onMessage: (text: string) => {
+        this.showMessage(text);
+      },
+      onChanged: () => {
+        this.loadEpisodes();
+      }
+    })
   }
 
   @Builder

@@ -2887,6 +2887,10 @@
     {
       "name": "feed_supplement_links_empty",
       "value": "Nothing added: invalid links, or these episodes already exist"
+    },
+    {
+      "name": "favorites_remove",
+      "value": "Remove from favorites"
     }
   ]
 }

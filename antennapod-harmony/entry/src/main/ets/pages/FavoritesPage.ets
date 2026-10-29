@@ -93,7 +93,8 @@ struct FavoritesPage {
   @Builder
   favoriteRow(item: FeedItem) {
     EpisodeRow({
-      showMore: false,
+      rowItem: item,
+      showMore: true,
       reference: true,
       title: item.title,
       imageUrl: item.imageUrl,

@@ -849,6 +849,7 @@ export struct HomePage {
   @Builder
   episodeRow(item: FeedItem) {
     EpisodeRow({
+      rowItem: item,
       title: item.title,
       imageUrl: this.itemImage(item),
       metaText: this.metaText(item),
