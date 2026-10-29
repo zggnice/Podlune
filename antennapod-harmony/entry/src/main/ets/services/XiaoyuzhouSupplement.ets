@@ -1,4 +1,5 @@
 import { HttpClient, HttpResponse } from '../net/HttpClient';
+import { FeedFetcher } from './FeedFetcher';
 import { Feed } from '../model/Feed';
 import { FeedItem } from '../model/FeedItem';
 import { FeedMedia } from '../model/FeedMedia';
@@ -84,21 +85,39 @@ export class XiaoyuzhouSupplement {
    * @returns 实际新增的条目数
    */
   static async addFromLinks(feed: Feed, text: string): Promise<number> {
-    const urls: string[] = XiaoyuzhouSupplement.extractEpisodeUrls(text);
+    const urls: string[] = XiaoyuzhouSupplement.extractLinks(text);
     if (urls.length === 0) {
       return 0;
     }
     const items: FeedItem[] = [];
     for (const url of urls) {
       try {
-        const response: HttpResponse = await HttpClient.get(url,
-          { 'User-Agent': 'Mozilla/5.0 (Linux; HarmonyOS) Podlune/1.0' }, XiaoyuzhouSupplement.TIMEOUT_MS);
-        const item: FeedItem | undefined = XiaoyuzhouSupplement.parseEpisodePage(response.body, feed, url);
-        if (item !== undefined) {
+        if (XiaoyuzhouSupplement.isAudioLink(url)) {
+          // 单集音频直链：直接建条目，标题取文件名，时长交给播放器加载后回填
+          const direct: FeedItem | undefined = XiaoyuzhouSupplement.buildAudioItem(url, feed);
+          if (direct !== undefined) {
+            items.push(direct);
+          }
+          continue;
+        }
+        if (XiaoyuzhouSupplement.isEpisodePage(url)) {
+          // 小宇宙单集页：从页面数据里取标题 / 时长 / 封面 / 正文
+          const response: HttpResponse = await HttpClient.get(url,
+            { 'User-Agent': 'Mozilla/5.0 (Linux; HarmonyOS) Podlune/1.0' }, XiaoyuzhouSupplement.TIMEOUT_MS);
+          const item: FeedItem | undefined = XiaoyuzhouSupplement.parseEpisodePage(response.body, feed, url);
+          if (item !== undefined) {
+            items.push(item);
+          }
+          continue;
+        }
+        // 其余按 RSS / Atom 订阅源处理：抓取后把其中的单集并入当前节目
+        const parsed = await FeedFetcher.fetchFeed(url);
+        for (const item of parsed.feed.items) {
+          item.feedId = feed.id;
           items.push(item);
         }
       } catch (error) {
-        Logger.warn(TAG, 'episode link failed ' + url + ': ' + (error as Error).message);
+        Logger.warn(TAG, 'supplement link failed ' + url + ': ' + (error as Error).message);
       }
     }
     if (items.length === 0) {
@@ -109,15 +128,16 @@ export class XiaoyuzhouSupplement {
     return merge.count;
   }
 
-  /** 从一段文本里提取单集链接（支持换行 / 空格 / 逗号分隔，自动去重） */
-  private static extractEpisodeUrls(text: string): string[] {
+  /**
+   * 从一段文本里提取链接（换行 / 空格 / 逗号分隔，自动去重）。
+   *
+   * 三类都接受：小宇宙单集页链接、单集音频直链、播客 RSS/Atom 地址。
+   */
+  private static extractLinks(text: string): string[] {
     const output: string[] = [];
     const parts: string[] = text.split(/[\s,，]+/);
     for (const raw of parts) {
       const value: string = raw.trim();
-      if (!value.includes('/episode/')) {
-        continue;
-      }
       const normalized: string = value.startsWith('http') ? value
         : (value.startsWith('www.') ? 'https://' + value : '');
       if (normalized === '' || output.includes(normalized)) {
@@ -129,6 +149,79 @@ export class XiaoyuzhouSupplement {
       }
     }
     return output;
+  }
+
+  /** 是否小宇宙单集页 */
+  private static isEpisodePage(url: string): boolean {
+    const lower: string = url.toLowerCase();
+    return lower.includes('xiaoyuzhoufm.com/episode') || lower.includes('/episode/');
+  }
+
+  /** 是否是音频直链（按扩展名判断） */
+  private static isAudioLink(url: string): boolean {
+    const lower: string = url.toLowerCase().split('?')[0];
+    return lower.endsWith('.m4a') || lower.endsWith('.mp3') || lower.endsWith('.aac')
+      || lower.endsWith('.ogg') || lower.endsWith('.wav') || lower.endsWith('.flac')
+      || lower.endsWith('.opus');
+  }
+
+  /** URL 解码失败时退回原字符串，避免因为标题里的 % 让整条链接被丢弃 */
+  private static safeTitle(name: string): string {
+    try {
+      return decodeURIComponent(name);
+    } catch (error) {
+      return name;
+    }
+  }
+
+  /** 音频直链 → 条目（标题取文件名去掉扩展名，发布时间与时长留空由播放器回填） */
+  private static buildAudioItem(url: string, feed: Feed): FeedItem | undefined {
+    let name: string = url.split('?')[0];
+    const slash: number = name.lastIndexOf('/');
+    if (slash >= 0) {
+      name = name.substring(slash + 1);
+    }
+    const dot: number = name.lastIndexOf('.');
+    if (dot > 0) {
+      name = name.substring(0, dot);
+    }
+    if (name === '') {
+      return undefined;
+    }
+    return new FeedItem({
+      id: 0,
+      title: XiaoyuzhouSupplement.safeTitle(name),
+      pubDate: 0,
+      isPlayed: false,
+      playState: FeedItem.UNPLAYED,
+      link: url,
+      description: '',
+      paymentLink: '',
+      media: new FeedMedia({
+        id: 0,
+        duration: 0,
+        fileUrl: '',
+        downloadUrl: url,
+        downloadDate: 0,
+        position: 0,
+        size: 0,
+        mimeType: 'audio/mp4',
+        lastPlayedTimeHistory: 0,
+        feedItemId: 0,
+        playedDuration: 0,
+        hasEmbeddedPicture: false,
+        lastPlayedTimeStatistics: 0
+      }),
+      feedId: feed.id,
+      hasChapters: false,
+      itemIdentifier: 'url:' + url,
+      imageUrl: feed.imageUrl,
+      autoDownloadEnabled: false,
+      podcastIndexChapterUrl: '',
+      podcastIndexTranscriptType: '',
+      podcastIndexTranscriptUrl: '',
+      socialInteractUrl: ''
+    });
   }
 
   /** 解析单集页 `pageProps.episode` */

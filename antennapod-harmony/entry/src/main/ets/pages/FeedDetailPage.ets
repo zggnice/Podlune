@@ -501,13 +501,14 @@ struct FeedDetailPage {
         .fontColor($r('app.color.text_tertiary'))
         .width('100%')
 
-      TextArea({ text: this.linkText, placeholder: $r('app.string.feed_supplement_links_placeholder') })
+      TextArea({ text: this.linkText })
         .fontFamily(this.appFontFamily)
         .fontSize(DesignTokens.FONT_PARAGRAPH)
         .height(140)
         .width('100%')
         .backgroundColor($r('app.color.surface_secondary'))
         .borderRadius(12)
+        .placeholderColor($r('app.color.text_tertiary'))
         .onChange((value: string) => {
           this.linkText = value;
         })

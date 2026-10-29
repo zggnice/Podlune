@@ -2862,15 +2862,15 @@
     },
     {
       "name": "feed_supplement_links_title",
-      "value": "Paste Xiaoyuzhou episode links"
+      "value": "Paste episode links"
     },
     {
       "name": "feed_supplement_links_hint",
-      "value": "One link per line; only the current podcast is updated, existing episodes are skipped."
+      "value": "One link per line: Xiaoyuzhou episode page, direct audio URL, or podcast RSS feed. Existing episodes are skipped."
     },
     {
       "name": "feed_supplement_links_placeholder",
-      "value": "https://www.xiaoyuzhoufm.com/episode/…"
+      "value": ""
     },
     {
       "name": "feed_supplement_links_apply",

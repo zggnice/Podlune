@@ -2862,15 +2862,15 @@
     },
     {
       "name": "feed_supplement_links_title",
-      "value": "粘贴小宇宙单集链接"
+      "value": "粘贴单集链接"
     },
     {
       "name": "feed_supplement_links_hint",
-      "value": "支持一次粘贴多条；每行一个链接，只会补进当前节目，已有的会跳过。"
+      "value": "每行一个链接，支持小宇宙单集页、单集音频直链、播客 RSS 地址；已有的单集会跳过。"
     },
     {
       "name": "feed_supplement_links_placeholder",
-      "value": "https://www.xiaoyuzhoufm.com/episode/…"
+      "value": ""
     },
     {
       "name": "feed_supplement_links_apply",
