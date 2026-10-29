@@ -30,6 +30,7 @@ import { MediaType } from '../model/Enums';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { EventHub, EventType, EpisodeDownloadData, FeedItemUpdateData, FeedUpdateData } from '../events/EventHub';
 import { FeedNotices } from '../common/FeedNotices';
+import { SafeAreaProbe } from '../common/SafeAreaProbe';
 import { LazyDataSource } from '../components/LazyDataSource';
 import { FeedCover } from '../components/FeedCover';
 import { DurationUtils } from '../utils/DurationUtils';
@@ -157,6 +158,8 @@ struct FeedDetailPage {
   @State linkText: string = '';
   @State linkBusy: boolean = false;
   @State linkMessage: string = '';
+  /** 底部安全区（手势条 / 三键导航）：弹层背景要沉浸到底，内容还要让开它 */
+  @State bottomSafe: number = 0;
   /** 剧集列表左右滑动作 id（对照上游 SwipeActions.getSwipeActions；设置页保存后重新解析） */
   @State swipeRightId: string = SwipeActionId.NONE;
   @State swipeLeftId: string = SwipeActionId.NONE;
@@ -549,10 +552,12 @@ struct FeedDetailPage {
       left: DesignTokens.PAGE_MARGIN,
       right: DesignTokens.PAGE_MARGIN,
       top: DesignTokens.SPACE_L,
-      bottom: DesignTokens.SPACE_XL + 24
+      bottom: DesignTokens.SPACE_XL + this.bottomSafe
     })
     .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
+    // 让面板背景一直画到底部手势区（沉浸），内容靠上面的 padding 让开
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
   /** 提交粘贴的链接：抓取 → 去重入库 → 刷新列表 */
@@ -1538,6 +1543,11 @@ struct FeedDetailPage {
       }
     });
     this.loadSwipeActions();
+    SafeAreaProbe.bottomInset().then((inset: number) => {
+      if (this.mounted) {
+        this.bottomSafe = inset;
+      }
+    });
     const params = router.getParams() as FeedDetailParams;
     if (params !== undefined && params.feedId !== undefined) {
       this.load(params.feedId);

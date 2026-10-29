@@ -2866,7 +2866,7 @@
     },
     {
       "name": "feed_supplement_links_hint",
-      "value": "One link per line: Xiaoyuzhou episode page, direct audio URL, or podcast RSS feed. Existing episodes are skipped."
+      "value": "One link per line: episode page, direct audio URL, or podcast RSS feed. Existing episodes are skipped."
     },
     {
       "name": "feed_supplement_links_placeholder",

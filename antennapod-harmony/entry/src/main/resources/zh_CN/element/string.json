@@ -2866,7 +2866,7 @@
     },
     {
       "name": "feed_supplement_links_hint",
-      "value": "每行一个链接，支持小宇宙单集页、单集音频直链、播客 RSS 地址；已有的单集会跳过。"
+      "value": "每行一个链接，支持单集页面链接、单集音频直链、播客 RSS 地址；已有的单集会跳过。"
     },
     {
       "name": "feed_supplement_links_placeholder",
