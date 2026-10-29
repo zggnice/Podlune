@@ -112,7 +112,11 @@ export class RefreshService {
           // 首次抓取（= 批量导入刚登记、或从未成功抓取过）不按「新单集」处理：这一轮收录的是整源
           // 历史内容，既不该发「N 个新单集」通知，也不该触发自动下载 / 自动入队
           if (!firstFetch && merge.count > 0) {
-            notifications.push({ title: feed.getTitle(), count: merge.count });
+            const titles: string[] = [];
+            for (const added of merge.added) {
+              titles.push(added.title);
+            }
+            notifications.push({ title: feed.getTitle(), count: merge.count, episodes: titles });
             await RefreshService.applyNewEpisodesAction(feed, merge.added);
             await AutoDownloadService.onNewItems(feed, merge.added);
           }
@@ -347,7 +351,12 @@ export class RefreshService {
     // 公开 RSS 停更时，按设置开关从平台网页补全最新条目（失败静默）
     const supplemented: number = await XiaoyuzhouSupplement.trySupplement(feed);
     if (merge.count > 0) {
-      const notifications: FeedNotificationEntry[] = [{ title: feed.getTitle(), count: merge.count }];
+      const titles: string[] = [];
+      for (const added of merge.added) {
+        titles.push(added.title);
+      }
+      const notifications: FeedNotificationEntry[] = [
+        { title: feed.getTitle(), count: merge.count, episodes: titles }];
       await NotificationService.notifyNewEpisodesByFeed(notifications);
       await RefreshService.applyNewEpisodesAction(feed, merge.added);
       await AutoDownloadService.onNewItems(feed, merge.added);

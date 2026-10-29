@@ -24,8 +24,11 @@ const ABILITY_NAME: string = 'EntryAbility';
 
 /** 单个订阅的新集统计（仅包含开启 episodeNotification 的订阅） */
 export interface FeedNotificationEntry {
+  /** 订阅名（通知卡片的第一行，加粗） */
   title: string;
   count: number;
+  /** 新单集标题（通知卡片的第二行）；最多取前几条，其余用汇总条提示 */
+  episodes: string[];
 }
 
 export class NotificationService {
@@ -72,15 +75,25 @@ export class NotificationService {
    * 与上游 NewEpisodesNotification 一致：只有 feed.episodeNotification 为真的订阅才计入。
    * 通知携带 wantAgent（点击进入应用）与操作按钮「查看新单集」。
    */
+  /** 每条通知最多展示几个新单集（其余进汇总条） */
+  private static readonly EPISODES_PER_FEED: number = 3;
+  /** 单次刷新最多发几条通知，避免刷屏 */
+  private static readonly MAX_NOTIFICATIONS: number = 6;
+  /** 同一批通知的 groupName：系统会把它们折叠成一组（与参考图的列表形态一致） */
+  private static readonly GROUP_NAME: string = 'podlune-new-episodes';
+
+  /**
+   * 按单集发通知：每条通知 = 一个订阅名（标题，加粗）+ 一个单集标题（正文），
+   * 同一批用相同 `groupName`，系统会像参考图那样折叠成一组卡片列表。
+   *
+   * 超过展示上限时补一条汇总通知（Podlune + 还有 N 个新单集）。
+   */
   static async notifyNewEpisodesByFeed(entries: FeedNotificationEntry[]): Promise<void> {
     let total: number = 0;
-    const lines: string[] = [];
     for (const entry of entries) {
-      if (entry.count <= 0) {
-        continue;
+      if (entry.count > 0) {
+        total += entry.count;
       }
-      total += entry.count;
-      lines.push(entry.title + '：+' + entry.count);
     }
     if (total <= 0) {
       return;
@@ -89,7 +102,64 @@ export class NotificationService {
       Logger.info(TAG, 'episode notification disabled, skip ' + total + ' new episodes');
       return;
     }
-    await NotificationService.publish(lines.join('\n'));
+    let published: number = 0;
+    let rest: number = 0;
+    for (const entry of entries) {
+      if (entry.count <= 0) {
+        continue;
+      }
+      const titles: string[] = entry.episodes;
+      const shown: number = Math.min(titles.length, NotificationService.EPISODES_PER_FEED);
+      for (let i: number = 0; i < shown; i++) {
+        if (published >= NotificationService.MAX_NOTIFICATIONS) {
+          rest++;
+          continue;
+        }
+        await NotificationService.publishOne(published, entry.title, titles[i]);
+        published++;
+      }
+      // 该订阅还有没展示的（超出每条上限的部分）
+      rest += Math.max(0, entry.count - shown);
+    }
+    if (rest > 0) {
+      await NotificationService.publishOne(published, 'Podlune', '还有 ' + rest + ' 个新单集');
+    }
+    Logger.info(TAG, 'published ' + published + ' episode notifications, rest ' + rest);
+  }
+
+  /**
+   * 发一条「订阅名 + 单集标题」的通知（同一 groupName，系统自动成组）。
+   *
+   * @param seq 序号：与 NOTIFICATION_ID 组合成唯一 id，避免互相覆盖
+   */
+  private static async publishOne(seq: number, feedTitle: string, episodeTitle: string): Promise<void> {
+    try {
+      if (!await notificationManager.isNotificationEnabled()) {
+        return;
+      }
+    } catch (error) {
+      Logger.warn(TAG, 'isNotificationEnabled failed: ' + (error as Error).message);
+    }
+    const agent: WantAgent | undefined = await NotificationService.createWantAgent();
+    const request: notificationManager.NotificationRequest = {
+      id: NOTIFICATION_ID + seq,
+      groupName: NotificationService.GROUP_NAME,
+      content: {
+        notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
+        normal: {
+          title: feedTitle,
+          text: episodeTitle
+        }
+      }
+    };
+    if (agent !== undefined) {
+      request.wantAgent = agent;
+    }
+    try {
+      await notificationManager.publish(request);
+    } catch (error) {
+      Logger.error(TAG, 'publishOne failed', new Error((error as Error).message));
+    }
   }
 
   private static async publish(text: string): Promise<void> {
