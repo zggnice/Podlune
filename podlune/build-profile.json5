@@ -27,13 +27,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\房东家的鳄鱼\\.ohos\\config\\default_antennapod-harmony_oHBs4b8M-JS2l1meWj0lmueaBZ1FvPgDtJCOqZeqXyU=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "000000192F6AA7F4FB50DB13F04CC0B2BC020BEA7123E94786D28A39E2FB046D66114515D321B09D02",
-          "profile": "C:\\Users\\房东家的鳄鱼\\.ohos\\config\\default_antennapod-harmony_oHBs4b8M-JS2l1meWj0lmueaBZ1FvPgDtJCOqZeqXyU=.p7b",
+          "storeFile": "C:/Users/房东家的鳄鱼/Desktop/软件上架/Podlune.p12",
+          "storePassword": "000000199BBE08F5FBC8EDFCDFEA3BBFA6283F0034435E036164C0D56BAFEFBA87C9F4843D6CEF5F5A",
+          "keyAlias": "Podlune",
+          "keyPassword": "000000195C5EBC27DB766654541FA79FA921E55A1BD926F14412AC268A200840652280CCB537C373BD",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\房东家的鳄鱼\\.ohos\\config\\default_antennapod-harmony_oHBs4b8M-JS2l1meWj0lmueaBZ1FvPgDtJCOqZeqXyU=.p12",
-          "storePassword": "000000199581FACABD0DD4EC10BA686C2A565F2F9487FED60D28F61B16C5619F6BC6D3145FFF1D2D59"
+          "profile": "C:/Users/房东家的鳄鱼/Desktop/软件上架/PodluneRelease.p7b",
+          "certpath": "C:/Users/房东家的鳄鱼/Desktop/软件上架/Podlune.cer"
         }
       }
     ],
