@@ -1,4 +1,4 @@
-<img src="podlune/AppScope/resources/base/media/app_icon.svg" width="132" alt="Podlune 应用图标">
+<img src="docs/images/podlune-icon.png" width="132" alt="Podlune 应用图标">
 
 # Podlune
 
