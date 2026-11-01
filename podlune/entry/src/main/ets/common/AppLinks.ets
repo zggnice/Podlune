@@ -14,11 +14,11 @@ export class AppLinks {
   /** 本项目所基于的鸿蒙移植工程（GPL-3.0） */
   static readonly BASE_REPO: string = 'https://github.com/TomoeMami/HomenaPod';
   /** TODO(上架前)：换成你自己的公开仓库地址 */
-  static readonly SOURCE_REPO: string = 'https://github.com/TomoeMami/HomenaPod';
+  static readonly SOURCE_REPO: string = 'https://github.com/zggnice/Podlune';
   /** TODO(上架前)：换成你自己仓库的 Issues 地址 */
-  static readonly ISSUES: string = 'https://github.com/TomoeMami/HomenaPod/issues';
+  static readonly ISSUES: string = 'https://github.com/zggnice/Podlune/issues';
   /** TODO(上架前)：换成你自己仓库的 README 地址 */
-  static readonly DOCS: string = 'https://github.com/TomoeMami/HomenaPod#readme';
+  static readonly DOCS: string = 'https://github.com/zggnice/Podlune#readme';
   /** GPL-3.0 许可全文 */
   static readonly LICENSE: string = 'https://www.gnu.org/licenses/gpl-3.0.html';
 }

@@ -124,14 +124,12 @@ struct AboutPage {
               this.linkRow($r('app.string.about_row_base_repo'), AppLinks.BASE_REPO, AppLinks.BASE_REPO)
               this.rowDivider()
               this.linkRow($r('app.string.about_row_license'), URL_LICENSE, URL_LICENSE)
-              // 仓库尚未公开：卡片保留，但地址显示「暂未公开」且不可点击。
-              // TODO(上架 GitHub 后)：把 URL_SOURCE / URL_ISSUES / URL_DOCS 换成真实地址即可恢复可点。
               this.rowDivider()
-              this.linkRow($r('app.string.about_row_source'), $r('app.string.about_link_pending'), '')
+              this.linkRow($r('app.string.about_row_source'), URL_SOURCE, URL_SOURCE)
               this.rowDivider()
-              this.linkRow($r('app.string.about_row_issues'), $r('app.string.about_link_pending'), '')
+              this.linkRow($r('app.string.about_row_issues'), URL_ISSUES, URL_ISSUES)
               this.rowDivider()
-              this.linkRow($r('app.string.about_row_docs'), $r('app.string.about_link_pending'), '')
+              this.linkRow($r('app.string.about_row_docs'), URL_DOCS, URL_DOCS)
             }
             .width('100%')
           }
