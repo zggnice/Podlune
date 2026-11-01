@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-HARMONY="$ROOT/antennapod-harmony"
+HARMONY="$ROOT/podlune"
 ETS="$HARMONY/entry/src/main/ets"
 RES="$HARMONY/entry/src/main/resources"
 

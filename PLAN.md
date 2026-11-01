@@ -1,14 +1,14 @@
 # HomenaPod 移植总计划（源自 AntennaPod → HarmonyOS NEXT）
 
 > **说明**：本计划里提到的执行流水文件（`docs/progress-log.md`、`docs/e2e-report.md`、`STATUS.md`、
-> `docs/device-test-report.md`、`antennapod-harmony/CHANGELOG.md` 等）只在本地开发工作区保留，
+> `docs/device-test-report.md`、`podlune/CHANGELOG.md` 等）只在本地开发工作区保留，
 > **不随公开仓库发布**；仓库中公开的是设计/规格类文档（`docs/01`–`docs/07`、`feature-diff/`、
 > `harmony-counterparts.md`、`_ref-spec-*.md`）。
 
 - 文档版本：1.0
 - 制定日期：2026-09-08
 - 参考源码：`./antenna-repo`（AntennaPod `develop` 分支 @ `80243910fe620217111a60b0054a968f66084382`，2026-09-07，版本 3.12.1，Java 21 / AGP 9.0.1 / Media3 1.10.0，约 8 万行 Java）
-- 目标工程目录：`./antennapod-harmony`（尚未创建，由执行者按计划创建）
+- 目标工程目录：`./podlune`（尚未创建，由执行者按计划创建）
 
 ---
 
@@ -57,7 +57,7 @@
    - 注释写清“移植自哪个参考类”（如 `Port of: model/Feed.java`），便于回溯。
 6. **官方 API 依据**：写任何 `@ohos.*` 调用前，先查 `docs/05-risks-and-verification.md` 附录里的官方文档链接；链接失效时抓取 `openharmony/docs` master 分支对应文档，不要把记忆中的 API 当事实。
 7. **不允许的捷径**：不做“把 APK 塞进鸿蒙”的兼容方案；不引入未经 ohpm 验证的第三方库（计划列出的除外）；不跳过 DoD。
-8. **版本号只在用户明确要求时才改**：`antennapod-harmony/AppScope/app.json5` 的 `versionName` / `versionCode`
+8. **版本号只在用户明确要求时才改**：`podlune/AppScope/app.json5` 的 `versionName` / `versionCode`
    **默认保持不动** —— 功能提交、修复提交、重构与文档提交都**不要**顺手 bump。
    只有用户明确说「版本号 +0.0.1」「版本号更新到 x.y.z」时才改，并且放在**独立提交**里
    （提交信息沿用既有写法 `版本号更新到 1.0.13`），再按需 `gh release create` 发版。

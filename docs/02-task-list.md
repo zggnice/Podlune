@@ -1,6 +1,6 @@
 # 02 · 顺序任务清单（执行主清单）
 
-> **说明**：清单中的产物 `docs/progress-log.md`、`docs/e2e-report.md`、`antennapod-harmony/CHANGELOG.md`
+> **说明**：清单中的产物 `docs/progress-log.md`、`docs/e2e-report.md`、`podlune/CHANGELOG.md`
 > 等属于执行流水，**仅保留在本地工作区，不随公开仓库发布**。
 >
 > 使用方式：**严格从上到下逐项执行**。每项完成后在 `docs/progress-log.md` 记录 `[x]` 与验证证据；受阻则记 `[ ]` + 原因，跳到下一个无前置依赖的任务。
@@ -18,9 +18,9 @@
 ### T0.1 初始化工作区与进度日志
 - **前置**：无
 - **参考**：无
-- **产出**：`antennapod-harmony/`（空目录）、`docs/progress-log.md`
+- **产出**：`podlune/`（空目录）、`docs/progress-log.md`
 - **步骤**：
-  1. 创建 `antennapod-harmony/` 与 `docs/`（如不存在）。
+  1. 创建 `podlune/` 与 `docs/`（如不存在）。
   2. 创建 `docs/progress-log.md`，写入表头：`# 进度日志`、环境信息（node -v、java -version、`which ohpm hvigorw` 的结果、外网可达性测试 `curl -sI https://github.com` 的状态码）。
   3. 记录参考仓库快照：`antenna-repo` 的 commit 与分支（`git -C antenna-repo log -1 --format='%H %s'`）。
 - **DoD**：目录与日志存在；日志含上述 3 项事实。
@@ -40,13 +40,13 @@
 ### T0.3 创建 DevEco 工程骨架
 - **前置**：T0.1
 - **参考**：`docs/03-project-templates.md`（逐文件照抄）
-- **产出**：`antennapod-harmony/` 下全部骨架文件：根 4 个 + AppScope 2 个 + entry 配置 4 个 + 资源 8 个 + `EntryAbility.ets` + `Index.ets`
+- **产出**：`podlune/` 下全部骨架文件：根 4 个 + AppScope 2 个 + entry 配置 4 个 + 资源 8 个 + `EntryAbility.ets` + `Index.ets`
 - **步骤**：
   1. 按 docs/03 的顺序创建文件，**先建资源后建引用资源的配置**。
   2. JSON5 文件写完与 docs/03 模板逐行 diff 自查（模板已避开注释与尾逗号陷阱；Node 原生不校验 JSON5，工具链可用时以 hvigor 构建为准）。
   3. 创建 `entry/src/main/ets/` 下 §01 规定的全部空目录，每个目录放 `.gitkeep` 或 `README.md` 一句话说明。
   4. `Index.ets` 显示一行欢迎文本（字符串走资源）。
-- **DoD**：`find antennapod-harmony -type f | wc -l` ≥ 25；所有文件路径与 docs/03 一致。
+- **DoD**：`find podlune -type f | wc -l` ≥ 25；所有文件路径与 docs/03 一致。
 - **验证**：静态；hvigor 可用时运行 `hvigorw --version` 与构建命令并记录结果
 
 ### T0.4 工具链探测与决策记录
@@ -403,7 +403,7 @@
 ### T3.12 版本冻结 v0.1.0（M3 完成）
 - **前置**：T3.11
 - **参考**：无
-- **产出**：`antennapod-harmony/CHANGELOG.md`；`app.json5` versionName=1.0.0、versionCode=1000000；`docs/progress-log.md` M3 总结
+- **产出**：`podlune/CHANGELOG.md`；`app.json5` versionName=1.0.0、versionCode=1000000；`docs/progress-log.md` M3 总结
 - **步骤**：冻结代码基线（建议 `git init && git add && git commit`，若用户允许）；写 MVP 已知限制清单。
 - **DoD**：CHANGELOG 列 MVP 能力与 10 条以上已知限制；基线可回溯。
 - **验证**：静态

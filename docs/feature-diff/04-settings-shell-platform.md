@@ -1,7 +1,7 @@
 # 04 — 设置、外壳与平台集成：上游 AntennaPod vs 鸿蒙移植版
 
 - 上游：`antenna-repo`（commit `d05a58b`），sparse-checkout 含 `app/src/main`、`ui/`、`storage/preferences`；`system`、`event`、`storage:database`、`net:sync:*`、`playback:cast`、`app-wearos` **未检出**（见 `settings.gradle:19-61`），涉及未检出类的条目按"模块未检出，依据 UI/偏好调用点推断"标注。
-- 移植版：`antennapod-harmony/entry/src/main/ets`（ArkTS）+ `resources`。
+- 移植版：`podlune/entry/src/main/ets`（ArkTS）+ `resources`。
 - 说明：上游 `ui/preferences/src/main/res/xml/` 实际有 **12** 个 `preferences*.xml`（任务描述的 11 个未含 `preferences_about.xml`）。
 
 ## 结论摘要

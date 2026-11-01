@@ -1,8 +1,8 @@
 # 「订阅与内容库」域：上游 AntennaPod vs 鸿蒙移植版 逐项功能对比
 
 - 上游：`antenna-repo`（sparse checkout 仅 `app/src/main`、`ui/`、`storage/preferences`；`model/`、`parser/`、`net/`、`storage/database`、`storage/importexport` **未检出**）
-- 移植版：`antennapod-harmony/entry/src/main/ets`（97 个 .ets）
-- 证据写法 `文件:行`；上游路径省略 `antenna-repo/`，移植版路径省略 `antennapod-harmony/entry/src/main/ets/`
+- 移植版：`podlune/entry/src/main/ets`（97 个 .ets）
+- 证据写法 `文件:行`；上游路径省略 `antenna-repo/`，移植版路径省略 `podlune/entry/src/main/ets/`
 - 状态：`✅ 对齐`、`🔸 简化/替代`、`⬜ 缺失`、`➕ 移植版独有`
 
 ## 结论摘要

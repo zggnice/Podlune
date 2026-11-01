@@ -7,7 +7,7 @@
 单 `entry` 模块 + 严格分层目录（未来拆分 HAR/HSP 时按目录边界切开即可）：
 
 ```
-antennapod-harmony/
+podlune/
 ├── AppScope/                       # 应用级配置与资源
 ├── entry/
 │   ├── src/main/

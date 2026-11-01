@@ -54,4 +54,4 @@ hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-d
 - [ ] `ohos.permission.INTERNET`、`ohos.permission.KEEP_BACKGROUND_RUNNING` 用途说明
 - [ ] 隐私政策、用户协议
 - [ ] 图标 1024×1024、截图
-- [x] 开源许可：GPL-3.0 与 AntennaPod 来源声明（见 `antennapod-harmony/NOTICE.md`）
+- [x] 开源许可：GPL-3.0 与 AntennaPod 来源声明（见 `podlune/NOTICE.md`）

@@ -3,8 +3,8 @@
 # 只检查非 ArkUI 声明式文件（pages/components 除外），平台 API 用桩声明模拟。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SRC="$ROOT/antennapod-harmony/entry/src/main/ets"
-TOOLS="$ROOT/antennapod-harmony/tools"
+SRC="$ROOT/podlune/entry/src/main/ets"
+TOOLS="$ROOT/podlune/tools"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 

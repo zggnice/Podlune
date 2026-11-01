@@ -1,4 +1,4 @@
-<img src="antennapod-harmony/AppScope/resources/base/media/app_icon.svg" width="132" alt="Podlune 应用图标">
+<img src="podlune/AppScope/resources/base/media/app_icon.svg" width="132" alt="Podlune 应用图标">
 
 # Podlune
 
@@ -20,7 +20,7 @@
 | 鸿蒙移植 | [TomoeMami/HomenaPod](https://github.com/TomoeMami/HomenaPod) —— 用 ArkTS/ArkUI 重新实现，源文件以 `// Port of: <上游路径>` 标注对应关系 |
 | 本项目 | **Podlune** —— 在 HomenaPod 基础上重构界面与交互、新增功能，并将应用标识改为 **Podlune** / `com.podlune.app` |
 
-> 应用名称、包名、图标与文案均已与 AntennaPod 区分，**不使用其名称或标识作为产品标识**；上游与移植工程仅作事实性署名。许可与商标说明见 [`antennapod-harmony/NOTICE.md`](antennapod-harmony/NOTICE.md)。
+> 应用名称、包名、图标与文案均已与 AntennaPod 区分，**不使用其名称或标识作为产品标识**；上游与移植工程仅作事实性署名。许可与商标说明见 [`podlune/NOTICE.md`](podlune/NOTICE.md)。
 
 ## 与 HomenaPod 的主要差异
 
@@ -68,7 +68,7 @@
 需要 **DevEco Studio 5.x 及以上**（本项目在 DevEco Studio `26.0.0.821` + HarmonyOS SDK `26.0.0.105` 下构建）。
 
 ```bash
-cd antennapod-harmony
+cd podlune
 export DEVECO_SDK_HOME="/path/to/DevEco Studio/sdk"   # Windows: $env:DEVECO_SDK_HOME="..."
 
 # 编译打包（debug）
@@ -83,8 +83,8 @@ AppGallery Connect 申请**发布证书与 Release Profile** 后填入 `signingC
 **工程校验**（无需图形界面）：
 
 ```bash
-bash antennapod-harmony/scripts/check-project.sh    # 目录结构 / 导入路径 / 三语资源 / 页面注册
-bash antennapod-harmony/scripts/static-check.sh     # 静态类型检查（需 tsc）
+bash podlune/scripts/check-project.sh    # 目录结构 / 导入路径 / 三语资源 / 页面注册
+bash podlune/scripts/static-check.sh     # 静态类型检查（需 tsc）
 ```
 
 ## 从 HomenaPod 迁移数据
@@ -127,7 +127,7 @@ bash antennapod-harmony/scripts/static-check.sh     # 静态类型检查（需 t
 ├── LICENSE                      ← GNU GPL-3.0 全文（分发/再发布必须保留）
 ├── .gitignore                   ← 排除构建产物、签名文件、截图与备份
 ├── docs/                        ← 架构、任务、数据 schema、UI 对齐与发版文档
-├── antennapod-harmony/          ← DevEco Studio 工程（直接打开此目录）
+├── podlune/          ← DevEco Studio 工程（直接打开此目录）
 │   ├── AppScope/                ← 应用级配置（Podlune / com.podlune.app）
 │   ├── entry/                   ← 唯一模块
 │   │   └── src/main/

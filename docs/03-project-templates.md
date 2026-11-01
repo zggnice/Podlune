@@ -1,6 +1,6 @@
 # 03 · DevEco 工程骨架模板（照抄即可）
 
-> 用途：T0.3 创建 `antennapod-harmony/` 时逐文件照抄。模板基于 DevEco Studio 5.x（HarmonyOS 5.0，API 12）默认工程格式。
+> 用途：T0.3 创建 `podlune/` 时逐文件照抄。模板基于 DevEco Studio 5.x（HarmonyOS 5.0，API 12）默认工程格式。
 >
 > 注意事项：
 > 1. 先建**资源文件**，再建引用资源的配置；顺序已按依赖排列。
@@ -11,7 +11,7 @@
 ## 文件清单与顺序
 
 ```
-antennapod-harmony/
+podlune/
 ├── .gitignore
 ├── build-profile.json5                 # 1
 ├── hvigorfile.ts                       # 2
@@ -448,7 +448,7 @@ struct Index {
 ## 附 · 骨架建好后目录自查命令
 
 ```bash
-cd antennapod-harmony
+cd podlune
 find . -type f | sort
 # 期望：上述 20 个文件 + obfuscation-rules.txt + .gitignore 全部出现
 ```
@@ -456,7 +456,7 @@ find . -type f | sort
 ## 附 · 工具链可用时的构建命令
 
 ```bash
-cd antennapod-harmony
+cd podlune
 export DEVECO_SDK_HOME=/path/to/command-line-tools/sdk   # 按实际
 hvigorw clean --no-daemon
 hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon

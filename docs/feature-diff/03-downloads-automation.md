@@ -4,7 +4,7 @@
 - 上游：`antenna-repo/`（sparse-checkout 仅含 `app/src/main`、`ui/`、`storage/preferences`）。
   `net:download:*`、`storage:database`、`storage:importexport`、`storage:database-maintenance-service`、`system`、`event`、`model`、`parser:feed`、`playback:*` **未检出**。
   凡涉及 `DownloadService` / `EpisodeDownloadWorker` / `DBWriter` / `AutomaticDownloadAlgorithm` / `DatabaseExporter` / `OpmlBackupAgent` / `FeedMedia` / `FeedFilter` / `MimeTypeUtils` 的结论，均为**依据 UI/偏好调用点推断**（表中逐条标注）。
-- 移植版：`antennapod-harmony\entry\src\main\ets`。
+- 移植版：`podlune\entry\src\main\ets`。
 - 状态：`✅ 对齐` / `🔸 简化/替代` / `⬜ 缺失` / `➕ 移植版独有`。
 
 ## 结论摘要

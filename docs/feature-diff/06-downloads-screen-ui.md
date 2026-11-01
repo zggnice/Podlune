@@ -7,7 +7,7 @@
 - 上游：`antenna-repo/`（sparse-checkout：`app/src/main`、`ui/`、`storage/preferences`）。
   下载列表与日志的 UI 全在 `app/src/main/java/de/danoeh/antennapod/ui/screen/download/` 与 `app/src/main/res/layout|menu/`，**已检出，结论可直接核对**。
   `net:download:*`、`storage:database` 未检出；本文中标注「(上游 develop 源码核对)」的结论来自通过 `127.0.0.1:7890` 拉取的 `AntennaPod/develop` 对应文件。
-- 移植版：`antennapod-harmony/entry/src/main/ets`（`pages/DownloadsPage.ets` 为主）。
+- 移植版：`podlune/entry/src/main/ets`（`pages/DownloadsPage.ets` 为主）。
 - 状态：`⬜ 缺失` / `🔸 简化·替代` / `✅ 对齐` / `➕ 移植版独有`。
 - 每条末尾「决策」留空，供逐项填写：**对齐** 或 **保持**。
 

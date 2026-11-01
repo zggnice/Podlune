@@ -61,6 +61,6 @@
 
 ## 3. 与上游许可/商标的边界（复核）
 
-- 上游 AntennaPod 为 **GPL-3.0**：本项目保留全部 `Port of:` 来源注释与 GPL 声明（见 `antennapod-harmony/NOTICE.md`）。
+- 上游 AntennaPod 为 **GPL-3.0**：本项目保留全部 `Port of:` 来源注释与 GPL 声明（见 `podlune/NOTICE.md`）。
 - Media Kit 限制 logo 使用与官方背书暗示：本项目使用自有标识 **HomenaPod**，仅在「来源与许可」语境引用 AntennaPod 名称。
 - 结论：**无新增合规风险**；不引入任何上游 logo/图标资源。

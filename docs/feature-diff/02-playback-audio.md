@@ -1,7 +1,7 @@
 # 02 · 播放与音频域差异（上游 vs 鸿蒙移植版）
 
 - 上游基线：`antenna-repo/`（浅克隆，sparse-checkout 仅 `app/src/main`、`ui/`、`storage/preferences`）
-- 移植版：`antennapod-harmony/entry/src/main/ets`
+- 移植版：`podlune/entry/src/main/ets`
 - 状态：`✅ 对齐` · `🔸 简化/替代` · `⬜ 缺失` · `➕ 移植版独有`
 - **未检出模块**：`playback:base`、`playback:service`、`model`、`storage:database`、`parser:transcript`、`net:download:service`（见 `antenna-repo/.git/info/sparse-checkout`）。凡涉及 `PlaybackService`/`PlaybackServiceMediaPlayer`/`DBWriter`/`PlaybackServiceTaskManager`/`TranscriptParser` 的结论，均标注「模块未检出，依据 UI 调用点推断」。
 

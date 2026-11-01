@@ -2,7 +2,7 @@
 # 纯逻辑运行时验证：把纯模型/工具 .ets 编译为 JS，用 Node actuale 断言。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SRC="$ROOT/antennapod-harmony/entry/src/main/ets"
+SRC="$ROOT/podlune/entry/src/main/ets"
 WORK="$(mktemp -d)"
 OUT="$(mktemp -d)"
 trap 'rm -rf "$WORK" "$OUT"' EXIT
