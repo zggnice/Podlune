@@ -334,7 +334,8 @@ export class UserPreferences {
    * 具体实现见 `services/XiaoyuzhouSupplement.ets`。
    */
   static getSupplementStaleFeeds(): boolean {
-    return UserPreferences.getPrefs().getSync('prefSupplementStaleFeeds', false) as boolean;
+    // 默认开启（设置入口已隐藏，功能按默认策略运行）
+    return UserPreferences.getPrefs().getSync('prefSupplementStaleFeeds', true) as boolean;
   }
 
   static setSupplementStaleFeeds(value: boolean): void {

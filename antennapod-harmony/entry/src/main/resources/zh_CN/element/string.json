@@ -1765,10 +1765,6 @@
       "value": "运行环境"
     },
     {
-      "name": "about_row_device",
-      "value": "设备型号"
-    },
-    {
       "name": "about_row_upstream_repo",
       "value": "上游项目"
     },
@@ -2495,10 +2491,6 @@
     {
       "name": "feed_notice_xiaoyuzhou_155",
       "value": "（155期以后独家小宇宙）"
-    },
-    {
-      "name": "setting_supplement_stale",
-      "value": "从平台网页补全停更节目（实验性）"
     },
     {
       "name": "feed_supplement_links",

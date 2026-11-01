@@ -110,8 +110,6 @@ struct AboutPage {
               this.infoRow($r('app.string.about_row_bundle'), this.bundleName)
               this.rowDivider()
               this.infoRow($r('app.string.about_row_runtime'), this.runtimeLabel())
-              this.rowDivider()
-              this.infoRow($r('app.string.about_row_device'), this.deviceLabel())
             }
             .width('100%')
           }
@@ -350,10 +348,7 @@ struct AboutPage {
       + getContext(this).resourceManager.getStringSync($r('app.string.about_runtime_suffix'));
   }
 
-  /** 设备：机型 + 设备类型（phone / tablet / 2in1） */
-  deviceLabel(): string {
-    return deviceInfo.productModel + ' · ' + deviceInfo.deviceType;
-  }
+
 
   /**
    * 拉起外部链接：`ohos.want.action.viewData` + browsable 是鸿蒙打开 http(s) 链接的标准隐式 Want。
@@ -398,7 +393,7 @@ struct AboutPage {
     lines.push('Podlune ' + this.versionName + ' (' + this.versionCode.toString() + ')');
     lines.push('bundle: ' + this.bundleName);
     lines.push(deviceInfo.osFullName + ' / API ' + deviceInfo.sdkApiVersion.toString());
-    lines.push('device: ' + this.deviceLabel());
+    lines.push('device: ' + deviceInfo.productModel + ' · ' + deviceInfo.deviceType);
     return lines.join('\n');
   }
 }

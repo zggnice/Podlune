@@ -1765,10 +1765,6 @@
       "value": "Runtime"
     },
     {
-      "name": "about_row_device",
-      "value": "Device"
-    },
-    {
       "name": "about_row_upstream_repo",
       "value": "Upstream project"
     },
@@ -2495,10 +2491,6 @@
     {
       "name": "feed_notice_xiaoyuzhou_155",
       "value": "(Episodes after #155 are exclusive to Xiaoyuzhou)"
-    },
-    {
-      "name": "setting_supplement_stale",
-      "value": "Supplement stale feeds from platform web page (experimental)"
     },
     {
       "name": "feed_supplement_links",

@@ -72,8 +72,6 @@ export struct SettingsPage {
   @State message: string = '';
   /** 行内时长是否显示「剩余时间」（上游 prefShowRemainingTime，默认关） */
   @State showRemainingTime: boolean = false;
-  /** 实验性：停更订阅从平台网页补全最新条目（默认关闭） */
-  @State supplementStaleFeeds: boolean = false;
   /** 时间显示是否随播放倍速折算（上游 prefTimeRespectsSpeed，默认开） */
   @State timeRespectsSpeed: boolean = true;
   /** 滑动动作设置弹层开关（上游 SwipeActionsDialog） */
@@ -147,13 +145,6 @@ export struct SettingsPage {
                   this.showRemainingTime = isOn;
                   UserPreferences.setShowRemainingTime(isOn);
                   this.notifyPrefsChanged();
-                })
-              this.rowDivider()
-              // 实验性：公开 RSS 停更时从平台网页补全最新条目（默认关闭）
-              this.switchRow($r('sys.symbol.arrow_clockwise'), $r('app.string.setting_supplement_stale'),
-                this.supplementStaleFeeds, (isOn: boolean) => {
-                  this.supplementStaleFeeds = isOn;
-                  UserPreferences.setSupplementStaleFeeds(isOn);
                 })
               this.rowDivider()
               // 首页区块的显示/隐藏与排序（原在首页顶栏「更多」菜单里，现归入界面设置）
@@ -1144,7 +1135,6 @@ export struct SettingsPage {
     this.downloadsSortOrder = UserPreferences.getDownloadsSortedOrder() as SortOrder;
     this.downloadsButtonPlay = UserPreferences.getDownloadsButtonPlay();
     this.showRemainingTime = UserPreferences.getShowRemainingTime();
-    this.supplementStaleFeeds = UserPreferences.getSupplementStaleFeeds();
     this.timeRespectsSpeed = UserPreferences.getTimeRespectsSpeed();
     this.pauseOnDisconnect = UserPreferences.isPauseOnHeadsetDisconnect();
     this.unpauseOnHeadsetReconnect = UserPreferences.isUnpauseOnHeadsetReconnect();
