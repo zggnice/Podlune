@@ -1769,10 +1769,6 @@
       "value": "设备型号"
     },
     {
-      "name": "about_row_upstream",
-      "value": "上游基线"
-    },
-    {
       "name": "about_row_upstream_repo",
       "value": "上游项目"
     },
@@ -1793,16 +1789,12 @@
       "value": "项目文档"
     },
     {
-      "name": "about_value_upstream",
-      "value": "AntennaPod 3.12.1（develop @ 8024391）\n→ HomenaPod（HarmonyOS NEXT 移植工程）"
-    },
-    {
       "name": "about_value_license",
       "value": "GNU GPL-3.0（仅此版本）"
     },
     {
       "name": "about_text_source",
-      "value": "Podlune 是一个 HarmonyOS NEXT 播客客户端。来源链条为 AntennaPod → HomenaPod → Podlune：上游是 Android 播客应用 AntennaPod（GNU GPL-3.0），HomenaPod 是其对应的鸿蒙移植工程，Podlune 则在 HomenaPod 基础上二次开发——沿用其数据层与播放内核，重做界面与交互并新增功能。代码以 ArkTS / ArkUI 编写，不搬运 Android 源码；本项目与上游同为 GNU GPL-3.0 许可，分发或再发布时必须保留来源标注与许可声明。Podlune 不使用 AntennaPod 的名称、图标或品牌作为自己的产品标识。"
+      "value": "Podlune 是一个 HarmonyOS NEXT 播客客户端：上游是 Android 播客应用 AntennaPod（GNU GPL-3.0），其鸿蒙移植工程为 HomenaPod，Podlune 则在 HomenaPod 基础上二次开发——沿用其数据层与播放内核，重做界面与交互并新增功能。代码以 ArkTS / ArkUI 编写，不搬运 Android 源码；本项目与上游同为 GNU GPL-3.0 许可，分发或再发布时必须保留来源标注与许可声明。Podlune 不使用 AntennaPod 的名称、图标或品牌作为自己的产品标识。"
     },
     {
       "name": "about_text_privacy_local",
@@ -1815,10 +1807,6 @@
     {
       "name": "about_text_privacy_permissions",
       "value": "已声明权限：网络访问、网络状态（仅 Wi-Fi 自动下载）、后台播放、加速度计（睡眠定时期间摇一摇重置倒计时）、振动（睡眠定时结束前提醒，默认关闭）。全部为普通级权限，安装时由系统自动授予，不会弹窗索要；不申请定位、通讯录、相机或相册权限。"
-    },
-    {
-      "name": "about_text_credits",
-      "value": "Podlune 是一个由 AI 生成的开源项目：代码、资源与文档由大语言模型（DeepSeek，经 DeepSeek Harness 驱动）在多轮自然语言对话中产出。项目不含任何闭源第三方 SDK，也没有广告库。"
     },
     {
       "name": "about_text_disclaimer",
@@ -2458,7 +2446,7 @@
     },
     {
       "name": "legal_license_body",
-      "value": "来源链条：AntennaPod → HomenaPod → Podlune。上游 AntennaPod 与鸿蒙移植工程 HomenaPod 均为 GNU GPL-3.0；Podlune 在 HomenaPod 基础上二次开发，因此同样以 GPL-3.0 发布。按 GPL-3.0 要求，本项目在分发时会公开完整源码（地址见「关于」页，正式发布前必须可访问），你可以获取、修改并再分发；再分发时须保留作者署名、来源标注与许可证全文。本应用不含闭源第三方 SDK，也不含广告。"
+      "value": "上游 AntennaPod 与鸿蒙移植工程 HomenaPod 均为 GNU GPL-3.0；Podlune 在 HomenaPod 基础上二次开发，因此同样以 GPL-3.0 发布。按 GPL-3.0 要求，本项目在分发时会公开完整源码（地址见「关于」页，正式发布前必须可访问），你可以获取、修改并再分发；再分发时须保留作者署名、来源标注与许可证全文。本应用不含闭源第三方 SDK，也不含广告。"
     },
     {
       "name": "legal_data_title",
@@ -2490,7 +2478,7 @@
     },
     {
       "name": "about_credit_base_label",
-      "value": "鸿蒙移植工程"
+      "value": "上游鸿蒙移植工程"
     },
     {
       "name": "about_credit_base_value",
@@ -2547,6 +2535,10 @@
     {
       "name": "favorites_remove",
       "value": "取消收藏"
+    },
+    {
+      "name": "about_runtime_suffix",
+      "value": "及以上"
     }
   ]
 }

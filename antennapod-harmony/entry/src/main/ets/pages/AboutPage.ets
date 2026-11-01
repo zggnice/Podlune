@@ -112,8 +112,6 @@ struct AboutPage {
               this.infoRow($r('app.string.about_row_runtime'), this.runtimeLabel())
               this.rowDivider()
               this.infoRow($r('app.string.about_row_device'), this.deviceLabel())
-              this.rowDivider()
-              this.infoRow($r('app.string.about_row_upstream'), $r('app.string.about_value_upstream'))
             }
             .width('100%')
           }
@@ -169,7 +167,6 @@ struct AboutPage {
             }
             .width('100%')
           }
-          this.paragraph($r('app.string.about_text_credits'))
 
           // ── 免责声明 ──
           this.sectionTitle($r('app.string.about_section_disclaimer'))
@@ -349,7 +346,8 @@ struct AboutPage {
 
   /** 运行环境：系统版本 + 设备上的 SDK API 版本（未申请任何权限即可读取） */
   runtimeLabel(): string {
-    return deviceInfo.osFullName + ' · API ' + deviceInfo.sdkApiVersion.toString();
+    return deviceInfo.osFullName + ' · API ' + deviceInfo.sdkApiVersion.toString()
+      + getContext(this).resourceManager.getStringSync($r('app.string.about_runtime_suffix'));
   }
 
   /** 设备：机型 + 设备类型（phone / tablet / 2in1） */
