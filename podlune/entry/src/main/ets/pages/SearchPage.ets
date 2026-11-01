@@ -107,22 +107,6 @@ export struct SearchPage {
           .layoutWeight(1)
           .margin({ left: this.asTab ? DesignTokens.PAGE_MARGIN - DesignTokens.SPACE_S : DesignTokens.SPACE_S })
 
-        // 榜单入口：全球 / 中文 / 中文单集（图标位改为「榜单」二字，与顶栏文字同一视觉重量）
-        Stack() {
-          Text($r('app.string.charts_title')).fontFamily(this.appFontFamily)
-            .fontSize(DesignTokens.FONT_PARAGRAPH)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
-            .maxLines(1)
-        }
-        .width(DesignTokens.HIT_MIN)
-        .height(DesignTokens.HIT_MIN)
-        .alignContent(Alignment.Center)
-        .accessibilityText('榜单')
-        .onClick(() => {
-          router.pushUrl({ url: 'pages/ChartsPage' });
-        })
-
         Stack() {
           SymbolGlyph($r('sys.symbol.magnifyingglass'))
             .fontSize(DesignTokens.ICON_L)

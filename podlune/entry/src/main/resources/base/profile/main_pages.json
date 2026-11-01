@@ -23,7 +23,6 @@
                 "pages/EpisodesPage",
                 "pages/AboutPage",
                 "pages/CategoryPage",
-                "pages/ChartsPage",
                 "pages/EditHomeSectionsPage"
             ]
 }

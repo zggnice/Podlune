@@ -2,7 +2,7 @@
 
 # Podlune
 
-**Podlune** 是一个 **HarmonyOS NEXT 播客客户端**（ArkTS / ArkUI）。来源链条为 **AntennaPod → HomenaPod → Podlune**：上游是 Android 播客应用 [AntennaPod](https://github.com/AntennaPod/AntennaPod)（GNU GPL-3.0），[TomoeMami/HomenaPod](https://github.com/TomoeMami/HomenaPod) 是它的鸿蒙移植工程，**Podlune 是该移植工程的二次开发版本** —— 沿用其数据层与播放内核，重做界面与交互，并新增榜单、书签、自适应配色等能力。
+**Podlune** 是一个 **HarmonyOS NEXT 播客客户端**（ArkTS / ArkUI）。来源链条为 **AntennaPod → HomenaPod → Podlune**：上游是 Android 播客应用 [AntennaPod](https://github.com/AntennaPod/AntennaPod)（GNU GPL-3.0），[TomoeMami/HomenaPod](https://github.com/TomoeMami/HomenaPod) 是它的鸿蒙移植工程，**Podlune 是该移植工程的二次开发版本** —— 沿用其数据层与播放内核，重做界面与交互，并新增书签、自适应配色等能力。
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Platform](https://img.shields.io/badge/Platform-HarmonyOS%20NEXT-black.svg)](#技术栈)
@@ -32,7 +32,6 @@
 | 播放器工具条 | 时间点**书签**（点击标记 / 再点取消 / 长按查看列表）、带时间戳的**片段分享** |
 | 首页 | 默认顺序调整为「**待播清单** → 播放列表 → 随机惊喜 → …」，仍可在「编辑区块」里自由拖动排序；待播清单卡片按钮随播放状态切换，并显示**动态剩余时间** |
 | 队列 | 新增**插队规则**：当前播放项在队首时，新增项插到它下一行（连续新增则后加的更靠前）；播放置顶、拖拽排序、自然结束移除统一由 `position` 字段驱动 |
-| 榜单 | 新增**榜单页**：中文播客榜（热门节目 / 热门播客 / 新锐节目 / 新锐播客）+ 苹果播客榜（热门节目 / 热门单集），每日 08:00 更新缓存 |
 | 网络 | RSS 抓取改为**条件请求**（`ETag` / `Last-Modified`），304 时跳过下载与解析，明显改善境外源刷新耗时 |
 | 数据库 | schema 升级到 **v4**：`Queue` 增加 `position` / `created_at` 与复合索引，支持稳定游标分页 |
 | 媒体会话 | `AVSession` / 通知的包名改为**运行时读取**，改包名后无需改代码 |
@@ -42,7 +41,7 @@
 - **订阅**：RSS / Atom / iTunes 解析入库，iTunes Search 发现，私有订阅 Basic 认证，OPML 导入导出，标签、封面网格、排序与过滤、长按多选批量操作。
 - **播放**：`AVPlayer` 流播放与本地播放，`AVSession` 锁屏 / 播控中心，`AUDIO_PLAYBACK` 后台长时任务，六档倍速（含每订阅倍速），快进快退秒数可配，跳片头片尾，音量适配，重复模式，睡眠定时（预设 / 自定义 / 渐弱 / 震动 / 章节结束），耳机与蓝牙中断处理。
 - **队列**：持久化 + 内存引擎（串行化写入），插队与置顶见上，拖拽排序（浮层跟手、相邻让位、边缘自动滚动），排序菜单，锁定，多选，自动连播（仅自然结束才移除）。
-- **发现**：首页推荐板块（含中文专区），在线搜索（播客 / 单集），**榜单页**（中文四榜 / 苹果两榜，点卡片直达单集详情）。
+- **发现**：首页推荐板块（含中文专区），在线搜索（播客 / 单集）。
 - **单集**：详情页（在线播放 / 加入队列 / 下载 / 收藏 / 标记），时间点书签，章节，文字稿（官方 RSS 提供时），复制单集链接。
 - **下载与存储**：实时进度环，暂停 / 继续 / 取消 / 删除，失败分类与重试，自动下载策略，播放后自动删除，存储管理。
 - **统计与历史**：收听统计（按月 / 按订阅）、播放历史、收藏。
@@ -88,21 +87,12 @@ bash podlune/scripts/static-check.sh     # 静态类型检查（需 tsc）
 ```
 ## 数据来源
 
-| 榜单 | 来源 |
-|---|---|
-| 中文播客榜（热门节目 / 热门播客 / 新锐节目 / 新锐播客） | [xyzrank.com](https://xyzrank.com) 公开接口 `/api/episodes`、`/api/podcasts`、`/api/new-episodes`、`/api/new-podcasts` |
-| 苹果播客榜（热门节目 / 热门单集） | Apple 公开榜单 `rss.marketingtools.apple.com`，以及 `podcasts.apple.com/cn/charts` 页面解析（Apple 未提供公开的单集榜接口） |
-
-榜单仅作为发现入口，缓存每日 08:00 更新一次；不存储、不分发第三方数据。
-
 **从链接补全单集（默认开启）**：从第三方播客网页读取公开的标题、简介、封面与音频地址，仅用于补全你订阅的停更节目；不登录、不抓付费内容、不转存音频，请求失败时静默跳过，不影响正常刷新。
 
 ## 已知限制
 
 | 项 | 说明 |
 |---|---|
-| 苹果「热门单集」 | 依赖 Apple 页面结构解析，其改版时该栏可能为空（失败保留旧缓存并提示重试） |
-| 榜单节目 → 单集详情 | 需按「播客名 + 集标题」反查 RSS，首次点击约 1–3 秒；匹配失败会提示，不会跳到错误页面 |
 | 跳过静音 | `AVPlayer` 无等价能力，对应设置以禁用态呈现 |
 | 定时刷新 | `workScheduler` 最小间隔 2 小时 |
 

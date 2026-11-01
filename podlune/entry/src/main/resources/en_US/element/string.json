@@ -2317,50 +2317,6 @@
       "value": "Subscribe this podcast to select and batch-manage episodes."
     },
     {
-      "name": "charts_title",
-      "value": "Charts"
-    },
-    {
-      "name": "charts_daily_note",
-      "value": "Updated daily at 8:00"
-    },
-    {
-      "name": "charts_tab_cn",
-      "value": "Chinese Charts"
-    },
-    {
-      "name": "charts_tab_apple",
-      "value": "Apple Charts"
-    },
-    {
-      "name": "charts_sub_hot_episodes",
-      "value": "Top Episodes"
-    },
-    {
-      "name": "charts_sub_hot_podcasts",
-      "value": "Top Podcasts"
-    },
-    {
-      "name": "charts_sub_new_episodes",
-      "value": "Rising Episodes"
-    },
-    {
-      "name": "charts_sub_new_podcasts",
-      "value": "Rising Podcasts"
-    },
-    {
-      "name": "charts_sub_apple_episodes",
-      "value": "Top Episodes"
-    },
-    {
-      "name": "charts_empty",
-      "value": "No data"
-    },
-    {
-      "name": "charts_sub_apple_shows",
-      "value": "Top Shows"
-    },
-    {
       "name": "charts_sub_apple_subscribed",
       "value": "Top Subscribed Shows"
     },

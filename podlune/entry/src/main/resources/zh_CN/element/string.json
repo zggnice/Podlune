@@ -2317,50 +2317,6 @@
       "value": "订阅该播客后即可多选并批量操作单集。"
     },
     {
-      "name": "charts_title",
-      "value": "榜单"
-    },
-    {
-      "name": "charts_daily_note",
-      "value": "每日 8:00 更新"
-    },
-    {
-      "name": "charts_tab_cn",
-      "value": "中文播客榜"
-    },
-    {
-      "name": "charts_tab_apple",
-      "value": "苹果播客榜"
-    },
-    {
-      "name": "charts_sub_hot_episodes",
-      "value": "热门节目"
-    },
-    {
-      "name": "charts_sub_hot_podcasts",
-      "value": "热门播客"
-    },
-    {
-      "name": "charts_sub_new_episodes",
-      "value": "新锐节目"
-    },
-    {
-      "name": "charts_sub_new_podcasts",
-      "value": "新锐播客"
-    },
-    {
-      "name": "charts_sub_apple_episodes",
-      "value": "热门单集"
-    },
-    {
-      "name": "charts_empty",
-      "value": "暂无数据"
-    },
-    {
-      "name": "charts_sub_apple_shows",
-      "value": "热门节目"
-    },
-    {
       "name": "charts_sub_apple_subscribed",
       "value": "热门订阅节目"
     },
