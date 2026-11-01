@@ -3,6 +3,8 @@ import { PressLight } from '../common/PressLight';
 import { ChartEpisodeResolver } from '../services/ChartEpisodeResolver';
 import { ChartService, RankItem, XyzList } from '../services/ChartService';
 import { DesignTokens } from '../common/DesignTokens';
+import common from '@ohos.app.ability.common';
+import { ImmersiveHost } from '../services/ImmersiveHost';
 import { FeedCover } from '../components/FeedCover';
 
 /**
@@ -15,6 +17,8 @@ import { FeedCover } from '../components/FeedCover';
 @Entry
 @Component
 struct ChartsPage {
+  /** 状态栏高度：顶栏内容让开，背景铺满 */
+  @State statusInset: number = 0;
   /** 全局字体族：导入自定义字体后 AppStorage 一变，本 struct 内所有 Text 一起重绘 */
   @StorageProp('app_font_family') appFontFamily: string = 'HarmonyOS Sans';
   private static readonly TAB_CN: number = 0;
@@ -33,6 +37,9 @@ struct ChartsPage {
   private messageTimer: number = -1;
 
   aboutToAppear(): void {
+    ImmersiveHost.statusBarHeight(getContext(this) as common.UIAbilityContext).then((height: number) => {
+      this.statusInset = height;
+    });
     this.load();
   }
 
@@ -163,6 +170,7 @@ struct ChartsPage {
     Column() {
       // 顶栏
       Row({ space: DesignTokens.SPACE_XS }) {
+        // 注意：背景已铺到状态栏下，内容用 margin 让开（见该 Row 的 margin）
         Stack() {
           SymbolGlyph($r('sys.symbol.chevron_backward'))
             .fontSize(DesignTokens.ICON_XL)
@@ -188,6 +196,7 @@ struct ChartsPage {
       .width('100%')
       .height(DesignTokens.HEIGHT_FLOAT_TOP_BAR)
       .padding({ left: DesignTokens.SPACE_S, right: DesignTokens.PAGE_MARGIN })
+      .margin({ top: this.statusInset })
       .alignItems(VerticalAlign.Center)
 
       // 消息条 / 解析中
@@ -269,7 +278,8 @@ struct ChartsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    // 背景铺到状态栏与手势区（沉浸），顶栏内容按状态栏高度下移
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder
