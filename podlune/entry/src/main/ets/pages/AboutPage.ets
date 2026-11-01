@@ -130,7 +130,7 @@ struct AboutPage {
               this.rowDivider()
               this.linkRow($r('app.string.about_row_source'), URL_SOURCE, URL_SOURCE)
               this.rowDivider()
-              this.linkRow($r('app.string.about_row_issues'), URL_ISSUES, URL_ISSUES)
+              this.linkRow($r('app.string.about_row_issues'), AppLinks.FEEDBACK_EMAIL, 'mailto:' + AppLinks.FEEDBACK_EMAIL)
               this.rowDivider()
               this.linkRow($r('app.string.about_row_docs'), URL_DOCS, URL_DOCS)
             }
@@ -359,6 +359,13 @@ struct AboutPage {
    * 设备上没有可处理的浏览器（或启动被拒）时退化为复制链接，至少让用户拿得到地址。
    */
   async openLink(url: string): Promise<void> {
+    // 反馈邮箱：系统不一定有邮件客户端，直接复制地址更可靠
+    if (url.startsWith('mailto:')) {
+      await this.copyText(url.substring('mailto:'.length));
+      this.message = $r('app.string.about_link_copied');
+      this.showMessage = true;
+      return;
+    }
     try {
       const context = getContext(this) as common.UIAbilityContext;
       const want: Want = {

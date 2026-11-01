@@ -146,4 +146,4 @@ bash podlune/scripts/static-check.sh     # 静态类型检查（需 tsc）
 
 ## 反馈
 
-Bug 与建议请提交到本仓库 Issue，并尽量附上：设备型号、HarmonyOS 版本、复现步骤、相关日志（`hdc shell hilog -x`）与截图。
+Bug 与建议请发邮件至 **zhj0062@outlook.com**（或在本仓库提交 Issue），并尽量附上：设备型号、HarmonyOS 版本、复现步骤、相关日志（`hdc shell hilog -x`）与截图。
