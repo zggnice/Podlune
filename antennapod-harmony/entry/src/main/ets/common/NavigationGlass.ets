@@ -62,6 +62,17 @@ export class NavigationGlass {
   }
 
   /**
+   * 弹层（底部菜单/操作面板）专用材质。
+   *
+   * 与系统原生 Menu 的底色保持一致，因此**不随「沉浸光感档位」关闭而降级**：
+   * 档位为 0（关）时仍用「均衡」这一档，档位 > 0 时跟随用户选择。
+   * 系统不支持沉浸材质时返回 undefined，调用方退回实心表面色。
+   */
+  static sheetMaterial(level: number): SystemUiMaterial | undefined {
+    return NavigationGlass.materialFor(level > 0 ? level : 2);
+  }
+
+  /**
    * 浮动层背景亮度自适应：背景越亮，文字自动加深。
    * 与 systemMaterial 一起用时只影响前景可读性，不改变材质本身。
    */
