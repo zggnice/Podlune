@@ -994,7 +994,7 @@
     },
     {
       "name": "inbox_title",
-      "value": "收件箱"
+      "value": "最近更新"
     },
     {
       "name": "inbox_empty",
@@ -1982,7 +1982,7 @@
     },
     {
       "name": "inbox_search_hint",
-      "value": "搜索收件箱"
+      "value": "搜索最近更新"
     },
     {
       "name": "search_empty_sub",

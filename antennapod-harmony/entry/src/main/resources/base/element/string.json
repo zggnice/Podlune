@@ -994,7 +994,7 @@
     },
     {
       "name": "inbox_title",
-      "value": "Inbox"
+      "value": "Recently updated"
     },
     {
       "name": "inbox_empty",
@@ -1982,7 +1982,7 @@
     },
     {
       "name": "inbox_search_hint",
-      "value": "Search inbox"
+      "value": "Search recently updated"
     },
     {
       "name": "search_empty_sub",

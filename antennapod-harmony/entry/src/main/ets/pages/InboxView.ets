@@ -393,19 +393,41 @@ export struct InboxView {
         .margin({ top: DesignTokens.SPACE_XS, bottom: DesignTokens.SPACE_M })
       }
     } else {
-      AppBar({ title: $r('app.string.inbox_title'), showBack: true }) {
-        Row({ space: DesignTokens.SPACE_XS }) {
-          AppIconButton({
-            symbol: $r('sys.symbol.magnifyingglass'),
-            onTap: () => {
-              this.openSearch();
+      // 路由页顶栏与首页同款：大标题顶格 + 右侧动作；只在最左侧补一个返回键
+      Row() {
+        AppIconButton({
+          symbol: $r('sys.symbol.chevron_backward'),
+          tint: $r('app.color.text_primary'),
+          bg: Color.Transparent,
+          onTap: () => {
+            router.back();
+          }
+        })
+        Column() {
+          FloatingTopBar({
+            title: $r('app.string.inbox_title')
+          }) {
+            Row({ space: DesignTokens.SPACE_S }) {
+              AppIconButton({
+                symbol: $r('sys.symbol.magnifyingglass'),
+                tint: $r('app.color.text_primary'),
+                bg: Color.Transparent,
+                onTap: () => {
+                  this.openSearch();
+                }
+              })
+              OverflowButton({ symbol: $r('sys.symbol.ellipsis_circle') }) {
+                this.overflowMenu()
+              }
             }
-          })
-          OverflowButton({ symbol: $r('sys.symbol.ellipsis_circle') }) {
-            this.overflowMenu()
           }
         }
+        .layoutWeight(1)
       }
+      .width('100%')
+      .padding({ left: DesignTokens.SPACE_XS })
+      .margin({ top: DesignTokens.SPACE_XS, bottom: DesignTokens.SPACE_M })
+      .alignItems(VerticalAlign.Center)
     }
   }
 
