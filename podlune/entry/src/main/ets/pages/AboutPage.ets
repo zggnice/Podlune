@@ -5,6 +5,7 @@ import bundleManager from '@ohos.bundle.bundleManager';
 import deviceInfo from '@ohos.deviceInfo';
 import pasteboard from '@ohos.pasteboard';
 import { DesignTokens } from '../common/DesignTokens';
+import { SafeAreaProbe } from '../common/SafeAreaProbe';
 import { AppBar } from '../components/AppBar';
 import { RowCard } from '../components/RowCard';
 
@@ -37,6 +38,8 @@ struct AboutPage {
   /** 全局字体族：导入自定义字体后 AppStorage 一变，本 struct 内所有 Text 一起重绘 */
   @StorageProp('app_font_family') appFontFamily: string = 'HarmonyOS Sans';
   /** 运行时读取的应用版本（不在代码里硬编码，与 AppScope/app.json5 始终一致） */
+  /** 底部安全区（手势条）：背景沉浸到底，内容让开 */
+  @State bottomSafe: number = 0;
   @State versionName: string = '';
   @State versionCode: number = 0;
   @State bundleName: string = '';
@@ -198,7 +201,7 @@ struct AboutPage {
         .padding({
           left: DesignTokens.PAGE_MARGIN,
           right: DesignTokens.PAGE_MARGIN,
-          bottom: DesignTokens.SPACE_XXL
+          bottom: DesignTokens.SPACE_XXL + this.bottomSafe
         })
       }
       .width('100%')
@@ -210,8 +213,8 @@ struct AboutPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
-    // 沉浸式状态栏：与其它二级页一致，背景延伸到状态栏下
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+    // 沉浸式状态栏 + 手势条：背景一直铺到屏幕上下边缘（内容用 padding 让开）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   /** 分类标题（与设置页同款：14sp 品牌色，上 16vp / 下 8vp） */
@@ -315,6 +318,9 @@ struct AboutPage {
   }
 
   aboutToAppear(): void {
+    SafeAreaProbe.bottomInset().then((inset: number) => {
+      this.bottomSafe = inset;
+    });
     this.loadBundleInfo();
   }
 
