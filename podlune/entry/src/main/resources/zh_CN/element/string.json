@@ -2487,6 +2487,10 @@
     {
       "name": "about_runtime_suffix",
       "value": "及以上"
+    },
+    {
+      "name": "legal_online_title",
+      "value": "在线查看完整隐私政策"
     }
   ]
 }

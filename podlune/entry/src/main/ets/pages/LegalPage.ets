@@ -1,4 +1,9 @@
 import { AppBar } from '../components/AppBar';
+import { AppLinks } from '../common/AppLinks';
+import common from '@ohos.app.ability.common';
+import { Want } from '@kit.AbilityKit';
+import pasteboard from '@ohos.pasteboard';
+import { promptAction } from '@kit.ArkUI';
 import { RowCard } from '../components/RowCard';
 import { DesignTokens } from '../common/DesignTokens';
 import { AppFont } from '../services/AppFont';
@@ -25,6 +30,24 @@ struct LegalPage {
           this.section($r('app.string.legal_data_title'), $r('app.string.legal_data_body'))
           this.section($r('app.string.legal_privacy_title'), $r('app.string.legal_privacy_body'))
           this.section($r('app.string.legal_permission_title'), $r('app.string.legal_permission_body'))
+
+          // 商店要求：应用内可跳转到公网隐私政策
+          RowCard({ pad: 0, radius: 20 }) {
+            Row({ space: DesignTokens.SPACE_XS }) {
+              Text($r('app.string.legal_online_title')).fontFamily(this.appFontFamily)
+                .fontSize(DesignTokens.FONT_BODY)
+                .fontColor($r('app.color.primary'))
+                .layoutWeight(1)
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(DesignTokens.ICON_S)
+                .fontColor([$r('app.color.text_tertiary')])
+            }
+            .width('100%')
+            .padding(DesignTokens.SPACE_M)
+            .onClick(() => {
+              this.openPrivacyPolicy();
+            })
+          }
         }
         .width('100%')
         .padding({
@@ -43,6 +66,28 @@ struct LegalPage {
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  /** 打开在线隐私政策；系统没有浏览器时退回「复制链接」 */
+  async openPrivacyPolicy(): Promise<void> {
+    const url: string = AppLinks.PRIVACY_POLICY_URL;
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const want: Want = {
+        action: 'ohos.want.action.viewData',
+        entities: ['entity.system.browsable'],
+        uri: url
+      };
+      await context.startAbility(want);
+    } catch (error) {
+      try {
+        const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, url);
+        await pasteboard.getSystemPasteboard().setData(data);
+        promptAction.showToast({ message: $r('app.string.about_link_copied') });
+      } catch (inner) {
+        promptAction.showToast({ message: url });
+      }
+    }
   }
 
   @Builder
