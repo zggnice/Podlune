@@ -1,5 +1,7 @@
 import router from '@ohos.router';
 import { DesignTokens } from '../common/DesignTokens';
+import common from '@ohos.app.ability.common';
+import { ImmersiveHost } from '../services/ImmersiveHost';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { EventHub, EventType, HomeSectionsChangedData } from '../events/EventHub';
 
@@ -47,9 +49,14 @@ struct EditHomeSectionsPage {
   @State dragIndex: number = -1;
   /** 每行实测高度，拖动换位时按它算落点 */
   private rowHeight: number = 56;
+  /** 状态栏高度：顶栏内容要避开，但背景要一直铺到屏幕顶部 */
+  @State statusInset: number = 0;
 
   aboutToAppear(): void {
     this.reload();
+    ImmersiveHost.statusBarHeight(getContext(this) as common.UIAbilityContext).then((height: number) => {
+      this.statusInset = height;
+    });
   }
 
   /** 从偏好里读一次；缺失项按默认顺序补齐（不影响已保存的相对顺序） */
@@ -352,6 +359,7 @@ struct EditHomeSectionsPage {
       .width('100%')
       .height(52)
       .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
+      .margin({ top: this.statusInset })
 
       // ---- 唯一滚动区：说明 + 已显示分组 + 已隐藏分组
       List({ space: 0 }) {
@@ -429,6 +437,7 @@ struct EditHomeSectionsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+    // 背景铺到状态栏与手势区（沉浸），内容用 padding 让开状态栏高度
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 }
