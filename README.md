@@ -26,7 +26,7 @@
 
 | 域 | 变化 |
 |---|---|
-| 品牌 | 应用名 **Podlune**，`bundleName` **`com.podlune.app`**；跨包名的数据迁移见下文 |
+| 品牌 | 应用名 **Podlune**，`bundleName` **`com.podlune.app`** |
 | 视觉 | 单色 + 品牌紫的克制风格；播放器背景为「封面铺满 → `backgroundBlurStyle(BlurStyle.BACKGROUND_THICK)` 厚模糊 → 自上而下渐变压暗」三层，固定深色观感；图标统一为系统符号 |
 | 播放器进度条 | `Slider`（`InSet`、`trackThickness(6)`、未播放 `#66FFFFFF`、已播放白色、滑块白色 12×12）；**两端时间固定占位**（`0:00` / `--:--`），**暂停状态下也能拖动** |
 | 播放器工具条 | 时间点**书签**（点击标记 / 再点取消 / 长按查看列表）、带时间戳的**片段分享** |
