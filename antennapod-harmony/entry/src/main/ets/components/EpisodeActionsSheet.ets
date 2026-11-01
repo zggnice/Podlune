@@ -1,6 +1,4 @@
 import { FeedItem } from '../model/FeedItem';
-import { NavigationGlass } from '../common/NavigationGlass';
-import { NAV_LIGHT_KEY } from '../prefs/UserPreferences';
 import { EpisodeActions } from '../services/EpisodeActions';
 import { DesignTokens } from '../common/DesignTokens';
 import { AppFont } from '../services/AppFont';
@@ -27,8 +25,6 @@ import { AppFont } from '../services/AppFont';
  */
 @Component
 export struct EpisodeActionsSheet {
-  /** 沉浸光感档位（弹层材质与系统菜单保持一致） */
-  @StorageLink(NAV_LIGHT_KEY) navLightLevel: number = 0;
   @StorageProp('app_font_family') appFontFamily: string = AppFont.DEFAULT_FAMILY;
   @Prop item: FeedItem;
   /** 打开面板时的收藏状态（由页面查询后传入） */
@@ -134,10 +130,7 @@ export struct EpisodeActionsSheet {
         })
     }
     .width('100%')
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
     .padding({
       left: DesignTokens.PAGE_MARGIN,

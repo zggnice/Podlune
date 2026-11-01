@@ -1,6 +1,4 @@
 import router from '@ohos.router';
-import { NavigationGlass } from '../common/NavigationGlass';
-import { NAV_LIGHT_KEY } from '../prefs/UserPreferences';
 import pasteboard from '@ohos.pasteboard';
 import { EpisodeRepository, InboxCursor } from '../db/repositories/EpisodeRepository';
 import { FeedRepository } from '../db/repositories/FeedRepository';
@@ -74,8 +72,6 @@ interface InboxMenuItem {
  */
 @Component
 export struct InboxView {
-  /** 沉浸光感档位（弹层材质与系统菜单保持一致） */
-  @StorageLink(NAV_LIGHT_KEY) navLightLevel: number = 0;
   /** 全局字体族：导入自定义字体后 AppStorage 一变，本 struct 内所有 Text 一起重绘 */
   @StorageProp('app_font_family') appFontFamily: string = 'HarmonyOS Sans';
   @Prop bottomInset: number = 0;
@@ -716,10 +712,7 @@ export struct InboxView {
       .width('100%')
     }
     .width('100%')
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
     .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN, bottom: DesignTokens.PAGE_MARGIN })
   }
@@ -765,10 +758,7 @@ export struct InboxView {
         })
     }
     .width('100%')
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
     .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
   }
@@ -859,10 +849,7 @@ export struct InboxView {
     }
     .constraintSize({ maxHeight: InboxView.SHEET_MAX_HEIGHT })
     .width('100%')
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
   }
 

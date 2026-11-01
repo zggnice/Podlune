@@ -1,6 +1,4 @@
 import router from '@ohos.router';
-import { NavigationGlass } from '../common/NavigationGlass';
-import { NAV_LIGHT_KEY } from '../prefs/UserPreferences';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, DividerShowType } from '@kit.UIDesignKit';
 import { LengthMetrics } from '@kit.ArkUI';
 import { ImmersiveHost } from '../services/ImmersiveHost';
@@ -102,8 +100,6 @@ interface PreviewSnapshot {
 @Entry
 @Component
 struct FeedDetailPage {
-  /** 沉浸光感档位（弹层材质与系统菜单保持一致） */
-  @StorageLink(NAV_LIGHT_KEY) navLightLevel: number = 0;
   /** 本页在系统栏管理里的所有权标识 */
   /** 全局字体族：导入自定义字体后 AppStorage 一变，本 struct 内所有 Text 一起重绘 */
   @StorageProp('app_font_family') appFontFamily: string = 'HarmonyOS Sans';
@@ -493,10 +489,7 @@ struct FeedDetailPage {
       .margin({ bottom: DesignTokens.SPACE_L })
     }
     .width('100%')
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
   }
 
@@ -565,10 +558,7 @@ struct FeedDetailPage {
       top: DesignTokens.SPACE_L,
       bottom: DesignTokens.SPACE_XL + this.bottomSafe
     })
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
     // 让面板背景一直画到底部手势区（沉浸），内容靠上面的 padding 让开
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
@@ -1367,10 +1357,7 @@ struct FeedDetailPage {
         })
     }
     .width('100%')
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
     .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
   }
@@ -1468,10 +1455,7 @@ struct FeedDetailPage {
       .margin({ top: DesignTokens.SPACE_XS, bottom: DesignTokens.SPACE_L })
     }
     .width('100%')
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
     .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
   }
@@ -1552,10 +1536,7 @@ struct FeedDetailPage {
         })
     }
     .width('100%')
-    // 与「单集页顶栏更多」的系统菜单同款材质：档位 > 0 时挂系统沉浸材质，
-    // 关闭档位时退回原来的实心表面色，保证任何设备都有可读背景。
-    .backgroundColor(NavigationGlass.supported() ? Color.Transparent : $r('app.color.surface'))
-    .systemMaterial(NavigationGlass.sheetMaterial(this.navLightLevel))
+    .backgroundColor($r('app.color.surface'))
     .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
     .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
   }
