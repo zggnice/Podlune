@@ -26,7 +26,7 @@
 
 | 域 | 变化 |
 |---|---|
-| 品牌 | 应用名 **Podlune**，`bundleName` **`com.podlune.app`**（原 `com.homenapod.app`）；跨包名的数据迁移见下文 |
+| 品牌 | 应用名 **Podlune**，`bundleName` **`com.podlune.app`**；跨包名的数据迁移见下文 |
 | 视觉 | 单色 + 品牌紫的克制风格；播放器背景为「封面铺满 → `backgroundBlurStyle(BlurStyle.BACKGROUND_THICK)` 厚模糊 → 自上而下渐变压暗」三层，固定深色观感；图标统一为系统符号 |
 | 播放器进度条 | `Slider`（`InSet`、`trackThickness(6)`、未播放 `#66FFFFFF`、已播放白色、滑块白色 12×12）；**两端时间固定占位**（`0:00` / `--:--`），**暂停状态下也能拖动** |
 | 播放器工具条 | 时间点**书签**（点击标记 / 再点取消 / 长按查看列表）、带时间戳的**片段分享** |
@@ -86,18 +86,6 @@ AppGallery Connect 申请**发布证书与 Release Profile** 后填入 `signingC
 bash podlune/scripts/check-project.sh    # 目录结构 / 导入路径 / 三语资源 / 页面注册
 bash podlune/scripts/static-check.sh     # 静态类型检查（需 tsc）
 ```
-
-## 从 HomenaPod 迁移数据
-
-包名由 `com.homenapod.app` 改为 `com.podlune.app` 后，系统视为两个独立应用，旧数据不会自动继承：
-
-1. 打开**旧版**（HomenaPod）：设置 → 导入导出 → 导出备份，得到 `*.db` 文件；
-2. 安装**新版**（Podlune）并首次启动；
-3. 新版：设置 → 导入导出 → 导入备份 → 选择上一步的文件 → 确认重启；
-4. 核对订阅 / 播放进度 / 队列无误后，再卸载旧版。
-
-> 数据库文件名仍为 `Homenapod.db`、偏好键仍沿用 `homenapod.*` 前缀 —— 这是为了**不丢失既有订阅与播放记录**而保留的内部标识，不影响界面与系统显示。
-
 ## 数据来源
 
 | 榜单 | 来源 |
@@ -117,7 +105,6 @@ bash podlune/scripts/static-check.sh     # 静态类型检查（需 tsc）
 | 榜单节目 → 单集详情 | 需按「播客名 + 集标题」反查 RSS，首次点击约 1–3 秒；匹配失败会提示，不会跳到错误页面 |
 | 跳过静音 | `AVPlayer` 无等价能力，对应设置以禁用态呈现 |
 | 定时刷新 | `workScheduler` 最小间隔 2 小时 |
-| 包名变更 | 改包名须重新生成签名；旧版数据需按上文手动迁移 |
 
 ## 仓库结构
 
@@ -146,4 +133,4 @@ bash podlune/scripts/static-check.sh     # 静态类型检查（需 tsc）
 
 ## 反馈
 
-Bug 与建议请发邮件至 **zhj0062@outlook.com**（或在本仓库提交 Issue），并尽量附上：设备型号、HarmonyOS 版本、复现步骤、相关日志（`hdc shell hilog -x`）与截图。
+Bug 与建议请在本仓库提交 Issue，并尽量附上：设备型号、HarmonyOS 版本、复现步骤、相关日志（`hdc shell hilog -x`）与截图。
