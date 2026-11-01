@@ -44,7 +44,7 @@
 
 - 不收集、不上传任何个人身份信息；无账号体系、无统计 SDK、无广告。
 - 订阅、播放进度、队列、下载、书签等数据仅保存在**本机沙箱**（`relationalStore` + `preferences`）。
-- 网络请求仅用于：抓取订阅源、获取榜单/搜索、下载音频、用户自行配置的 AI 文字稿服务。
+- 网络请求仅用于：抓取你订阅的播客源、获取榜单与搜索结果、下载音频，以及（默认关闭、需手动开启的）从第三方播客网页补全停更节目条目。
 - 权限用途：
 
 | 权限 | 用途 |
@@ -52,7 +52,7 @@
 | `ohos.permission.INTERNET` / `GET_NETWORK_INFO` | 抓取订阅、榜单、下载音频 |
 | `ohos.permission.KEEP_BACKGROUND_RUNNING` | 后台音频播放、定时刷新 |
 | `ohos.permission.VIBRATE` | 睡眠定时器到时震动提醒 |
-| `ohos.permission.ACCELEROMETER` | 「摇一摇」触发播放控制 |
+| `ohos.permission.ACCELEROMETER` | 睡眠定时期间「摇一摇」重置倒计时 |
 
 ## 七、生成方式声明
 

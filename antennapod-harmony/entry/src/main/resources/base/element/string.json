@@ -2281,14 +2281,6 @@
       "value": "Official transcript"
     },
     {
-      "name": "transcript_source_ai",
-      "value": "AI generated"
-    },
-    {
-      "name": "transcript_ai_not_configured",
-      "value": "AI transcription service is not configured yet."
-    },
-    {
       "name": "transcript_refetch",
       "value": "Re-download official transcript"
     },
@@ -2309,220 +2301,12 @@
       "value": "Back to current"
     },
     {
-      "name": "transcript_ai_generate",
-      "value": "Generate transcript with AI"
-    },
-    {
-      "name": "transcript_ai_generate_hint",
-      "value": "Use your configured speech-to-text service to convert this episode audio into text."
-    },
-    {
       "name": "transcript_go_settings",
       "value": "Open settings"
     },
     {
       "name": "transcript_untimed_hint",
       "value": "No precise timestamps available for this transcript."
-    },
-    {
-      "name": "transcript_settings_title",
-      "value": "AI Transcript"
-    },
-    {
-      "name": "transcript_settings_section_general",
-      "value": "General"
-    },
-    {
-      "name": "transcript_settings_enable",
-      "value": "Enable AI transcript"
-    },
-    {
-      "name": "transcript_settings_enable_hint",
-      "value": "Use a verified speech-to-text model when no official transcript exists."
-    },
-    {
-      "name": "transcript_settings_need_config",
-      "value": "Please configure and test a speech-to-text service first."
-    },
-    {
-      "name": "transcript_settings_section_provider",
-      "value": "Provider"
-    },
-    {
-      "name": "transcript_provider_general",
-      "value": "Model provider"
-    },
-    {
-      "name": "transcript_settings_vendor_section",
-      "value": "Vendor"
-    },
-    {
-      "name": "transcript_vendor_audio_ok",
-      "value": "Works directly for transcription"
-    },
-    {
-      "name": "transcript_vendor_audio_proxy",
-      "value": "Needs a protocol bridge"
-    },
-    {
-      "name": "transcript_vendor_filled",
-      "value": "Endpoint filled in — now enter the model name"
-    },
-    {
-      "name": "transcript_vendor_unsupported",
-      "value": "This vendor uses a proprietary async protocol that is not supported yet (no request will be sent)."
-    },
-    {
-      "name": "transcript_vendor_hint",
-      "value": "Picking a vendor fills in the endpoint and default model"
-    },
-    {
-      "name": "transcript_vendor_deepseek",
-      "value": "DeepSeek"
-    },
-    {
-      "name": "transcript_vendor_kimi",
-      "value": "Moonshot Kimi"
-    },
-    {
-      "name": "transcript_vendor_zhipu",
-      "value": "Zhipu GLM"
-    },
-    {
-      "name": "transcript_vendor_qwen",
-      "value": "Alibaba Qwen"
-    },
-    {
-      "name": "transcript_vendor_hunyuan",
-      "value": "Tencent Hunyuan"
-    },
-    {
-      "name": "transcript_vendor_doubao",
-      "value": "ByteDance Doubao"
-    },
-    {
-      "name": "transcript_vendor_minimax",
-      "value": "MiniMax"
-    },
-    {
-      "name": "transcript_vendor_stepfun",
-      "value": "StepFun"
-    },
-    {
-      "name": "transcript_vendor_siliconflow",
-      "value": "SiliconFlow"
-    },
-    {
-      "name": "transcript_vendor_chat_only",
-      "value": "chat only"
-    },
-    {
-      "name": "transcript_vendor_no_audio_skip",
-      "value": "{vendor} has no OpenAI-compatible /audio/transcriptions endpoint (test skipped). Use SiliconFlow, or point the URL at your own bridge service."
-    },
-    {
-      "name": "transcript_vendor_no_audio",
-      "value": "This vendor only offers chat models; it has no OpenAI-compatible audio transcription endpoint, so the connection test will fail."
-    },
-    {
-      "name": "transcript_vendor_wenxin",
-      "value": "Baidu ERNIE"
-    },
-    {
-      "name": "transcript_vendor_spark",
-      "value": "iFlytek Spark"
-    },
-    {
-      "name": "transcript_provider_openai",
-      "value": "OpenAI audio transcription"
-    },
-    {
-      "name": "transcript_provider_custom",
-      "value": "Custom OpenAI-compatible service"
-    },
-    {
-      "name": "transcript_settings_section_endpoint",
-      "value": "Endpoint and model"
-    },
-    {
-      "name": "transcript_settings_base_url",
-      "value": "API endpoint"
-    },
-    {
-      "name": "transcript_settings_base_url_hint",
-      "value": "https://api.openai.com/v1"
-    },
-    {
-      "name": "transcript_settings_base_url_custom_hint",
-      "value": "https://your-host/v1"
-    },
-    {
-      "name": "transcript_settings_model",
-      "value": "Model"
-    },
-    {
-      "name": "transcript_settings_model_hint",
-      "value": "e.g. gpt-4o-transcribe"
-    },
-    {
-      "name": "transcript_settings_section_key",
-      "value": "API Key"
-    },
-    {
-      "name": "transcript_settings_key",
-      "value": "API Key"
-    },
-    {
-      "name": "transcript_settings_key_saved",
-      "value": "Stored securely on this device"
-    },
-    {
-      "name": "transcript_settings_key_empty",
-      "value": "Not configured"
-    },
-    {
-      "name": "transcript_settings_key_placeholder",
-      "value": "Paste the key"
-    },
-    {
-      "name": "transcript_settings_show",
-      "value": "Show"
-    },
-    {
-      "name": "transcript_settings_hide",
-      "value": "Hide"
-    },
-    {
-      "name": "transcript_settings_save_key",
-      "value": "Save key"
-    },
-    {
-      "name": "transcript_settings_delete_key",
-      "value": "Delete key"
-    },
-    {
-      "name": "transcript_settings_key_required",
-      "value": "Enter an API key first."
-    },
-    {
-      "name": "transcript_settings_key_saved_ok",
-      "value": "API key stored securely."
-    },
-    {
-      "name": "transcript_settings_key_save_failed",
-      "value": "Could not store the key securely on this device."
-    },
-    {
-      "name": "transcript_settings_key_deleted",
-      "value": "API key deleted."
-    },
-    {
-      "name": "transcript_settings_section_strategy",
-      "value": "Generation policy"
-    },
-    {
-      "name": "transcript_settings_policy",
-      "value": "When no official transcript"
     },
     {
       "name": "transcript_policy_ask",
@@ -2537,136 +2321,8 @@
       "value": "Never generate"
     },
     {
-      "name": "transcript_settings_wifi_only",
-      "value": "Generate only on Wi-Fi"
-    },
-    {
-      "name": "transcript_settings_confirm_cost",
-      "value": "Confirm cost before generating"
-    },
-    {
-      "name": "transcript_settings_auto_warning",
-      "value": "AI transcription may incur API fees and sends audio to your provider."
-    },
-    {
-      "name": "transcript_settings_section_test",
-      "value": "Connection test"
-    },
-    {
-      "name": "transcript_settings_test",
-      "value": "Test connection"
-    },
-    {
-      "name": "transcript_settings_testing",
-      "value": "Testing..."
-    },
-    {
-      "name": "transcript_settings_test_hint",
-      "value": "Uploads a 1-second bundled sample to your endpoint. A small API fee may apply."
-    },
-    {
-      "name": "transcript_settings_state_ok",
-      "value": "Configuration verified"
-    },
-    {
-      "name": "transcript_settings_state_failed",
-      "value": "Test failed"
-    },
-    {
-      "name": "transcript_settings_state_not_tested",
-      "value": "Not tested"
-    },
-    {
-      "name": "transcript_settings_state_not_configured",
-      "value": "Not configured"
-    },
-    {
-      "name": "transcript_settings_err_url",
-      "value": "Enter an API endpoint first."
-    },
-    {
-      "name": "transcript_settings_err_https",
-      "value": "The endpoint must use HTTPS."
-    },
-    {
-      "name": "transcript_settings_err_model",
-      "value": "Enter a model name first."
-    },
-    {
-      "name": "transcript_settings_err_key",
-      "value": "Configure an API key first."
-    },
-    {
-      "name": "transcript_settings_err_testaudio",
-      "value": "Bundled test audio is missing."
-    },
-    {
-      "name": "transcript_settings_test_ok_prefix",
-      "value": "Speech-to-text verified. "
-    },
-    {
-      "name": "transcript_settings_timed_yes",
-      "value": "Timestamps supported."
-    },
-    {
-      "name": "transcript_settings_timed_no",
-      "value": "No timestamps returned; playback sync unavailable."
-    },
-    {
-      "name": "transcript_settings_section_cache",
-      "value": "Cached transcripts"
-    },
-    {
-      "name": "transcript_settings_cache_count",
-      "value": "Transcripts: "
-    },
-    {
-      "name": "transcript_settings_cache_size",
-      "value": "Size: "
-    },
-    {
-      "name": "transcript_settings_clear_ai_cache",
-      "value": "Clear AI transcripts"
-    },
-    {
-      "name": "transcript_settings_cache_cleared",
-      "value": "AI transcripts cleared."
-    },
-    {
-      "name": "transcript_settings_privacy",
-      "value": "When AI transcription runs, the episode audio may be sent to the third-party service you configured and may incur fees. Your API key is stored in the system secure storage and is never uploaded anywhere else."
-    },
-    {
-      "name": "transcript_settings_ai_entry",
-      "value": "AI transcript"
-    },
-    {
-      "name": "transcript_settings_ai_entry_hint",
-      "value": "Configure a speech-to-text model to generate transcripts for episodes without an official one."
-    },
-    {
       "name": "settings_category_ai",
       "value": "Artificial intelligence"
-    },
-    {
-      "name": "transcript_ai_need_download",
-      "value": "Download this episode first, then generate its transcript."
-    },
-    {
-      "name": "transcript_ai_too_large",
-      "value": "Audio exceeds the single-request limit of this API. Long-audio splitting is not available yet."
-    },
-    {
-      "name": "transcript_ai_cost_hint",
-      "value": "This sends the audio to your provider and may incur fees. Continue?"
-    },
-    {
-      "name": "transcript_ai_generating",
-      "value": "Generating transcript..."
-    },
-    {
-      "name": "transcript_ai_failed",
-      "value": "Generation failed: "
     },
     {
       "name": "feed_preview_play_failed",
@@ -2810,7 +2466,7 @@
     },
     {
       "name": "legal_data_body",
-      "value": "Subscriptions come from RSS/Atom feeds you add; their content belongs to the respective podcasters. Chinese charts use the public xyzrank.com APIs, Apple charts use Apple public chart data, and search uses public APIs such as iTunes Search. The app only uses this data for discovery; it does not store or redistribute the raw datasets."
+      "value": "Subscriptions come from the RSS/Atom feeds you add; their content belongs to the respective podcasters. Chinese charts use public xyzrank.com APIs, Apple charts use Apple public chart data, and search uses public APIs such as iTunes Search. The app only uses this data for discovery and does not store or redistribute the raw datasets. \"Add episodes from links\" reads publicly visible information (title, summary, artwork, audio URL) from third-party podcast web pages, only when you trigger it manually, and is off by default."
     },
     {
       "name": "legal_privacy_title",
@@ -2818,7 +2474,7 @@
     },
     {
       "name": "legal_privacy_body",
-      "value": "The app collects and uploads no personal data: no accounts, no analytics SDK, no ads. Subscriptions, playback positions, queue, downloads and bookmarks stay on this device. Network access is used only to fetch feeds, charts and search results, download audio, and call an AI transcript service you configure yourself."
+      "value": "This app collects and uploads no personal data: no accounts, no analytics SDK, no ads. Subscriptions, playback positions, queue, downloads, bookmarks and listening stats stay on this device. Network access is used only to fetch the podcast feeds you subscribe to, retrieve charts and search results, download audio, and (off by default, only when you turn it on) supplement stale shows from third-party web pages."
     },
     {
       "name": "legal_permission_title",
@@ -2826,7 +2482,7 @@
     },
     {
       "name": "legal_permission_body",
-      "value": "Network and network state: fetching feeds, charts and audio downloads. Background running: background playback and scheduled refresh. Vibration: sleep-timer reminder. Accelerometer: shake to control playback. All of them can be revoked at any time in system settings."
+      "value": "Network and network state: fetching feeds, charts, search results and audio downloads. Background running: background playback and scheduled refresh. Vibration: sleep-timer reminder. Accelerometer: shake to reset the sleep timer while it is running. All of these can be revoked at any time in system settings."
     },
     {
       "name": "about_row_base_repo",

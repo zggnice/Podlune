@@ -2281,14 +2281,6 @@
       "value": "官方文字稿"
     },
     {
-      "name": "transcript_source_ai",
-      "value": "AI 生成"
-    },
-    {
-      "name": "transcript_ai_not_configured",
-      "value": "尚未配置 AI 文字稿服务。"
-    },
-    {
       "name": "transcript_refetch",
       "value": "重新下载官方文字稿"
     },
@@ -2309,220 +2301,12 @@
       "value": "回到当前"
     },
     {
-      "name": "transcript_ai_generate",
-      "value": "AI 生成文字稿"
-    },
-    {
-      "name": "transcript_ai_generate_hint",
-      "value": "使用已配置的语音识别服务，将本集音频转换为文字。"
-    },
-    {
       "name": "transcript_go_settings",
       "value": "前往设置"
     },
     {
       "name": "transcript_untimed_hint",
       "value": "暂无精确时间同步。"
-    },
-    {
-      "name": "transcript_settings_title",
-      "value": "AI 文字稿"
-    },
-    {
-      "name": "transcript_settings_section_general",
-      "value": "通用"
-    },
-    {
-      "name": "transcript_settings_enable",
-      "value": "启用 AI 文字稿"
-    },
-    {
-      "name": "transcript_settings_enable_hint",
-      "value": "官方文字稿不可用时，使用已验证的语音识别模型生成。"
-    },
-    {
-      "name": "transcript_settings_need_config",
-      "value": "请先配置并测试语音识别服务。"
-    },
-    {
-      "name": "transcript_settings_section_provider",
-      "value": "服务商"
-    },
-    {
-      "name": "transcript_provider_general",
-      "value": "通用模型"
-    },
-    {
-      "name": "transcript_settings_vendor_section",
-      "value": "模型厂商"
-    },
-    {
-      "name": "transcript_vendor_audio_ok",
-      "value": "可直接用于语音转写"
-    },
-    {
-      "name": "transcript_vendor_audio_proxy",
-      "value": "需自建协议转换服务"
-    },
-    {
-      "name": "transcript_vendor_filled",
-      "value": "已填充接口地址，请填写模型名称"
-    },
-    {
-      "name": "transcript_vendor_unsupported",
-      "value": "该厂商使用私有异步协议，当前版本未接入（不会发起无效请求）。"
-    },
-    {
-      "name": "transcript_vendor_hint",
-      "value": "选择厂商后自动填充接口地址与默认模型"
-    },
-    {
-      "name": "transcript_vendor_deepseek",
-      "value": "DeepSeek 深度求索"
-    },
-    {
-      "name": "transcript_vendor_kimi",
-      "value": "月之暗面 Kimi"
-    },
-    {
-      "name": "transcript_vendor_zhipu",
-      "value": "智谱 GLM"
-    },
-    {
-      "name": "transcript_vendor_qwen",
-      "value": "阿里通义千问"
-    },
-    {
-      "name": "transcript_vendor_hunyuan",
-      "value": "腾讯混元"
-    },
-    {
-      "name": "transcript_vendor_doubao",
-      "value": "字节豆包"
-    },
-    {
-      "name": "transcript_vendor_minimax",
-      "value": "MiniMax"
-    },
-    {
-      "name": "transcript_vendor_stepfun",
-      "value": "阶跃星辰"
-    },
-    {
-      "name": "transcript_vendor_siliconflow",
-      "value": "硅基流动 SiliconFlow"
-    },
-    {
-      "name": "transcript_vendor_chat_only",
-      "value": "仅对话模型"
-    },
-    {
-      "name": "transcript_vendor_no_audio_skip",
-      "value": "{vendor} 没有 OpenAI 兼容的语音转写接口（测试已跳过）。可直接使用「硅基流动 SiliconFlow」，或把地址改成你自己的协议转换服务。"
-    },
-    {
-      "name": "transcript_vendor_no_audio",
-      "value": "该厂商只提供对话模型，没有 OpenAI 兼容的音频转写接口，测试连接会失败。"
-    },
-    {
-      "name": "transcript_vendor_wenxin",
-      "value": "百度文心"
-    },
-    {
-      "name": "transcript_vendor_spark",
-      "value": "讯飞星火"
-    },
-    {
-      "name": "transcript_provider_openai",
-      "value": "OpenAI 音频转写"
-    },
-    {
-      "name": "transcript_provider_custom",
-      "value": "自定义 OpenAI 兼容服务"
-    },
-    {
-      "name": "transcript_settings_section_endpoint",
-      "value": "接口与模型"
-    },
-    {
-      "name": "transcript_settings_base_url",
-      "value": "API 地址"
-    },
-    {
-      "name": "transcript_settings_base_url_hint",
-      "value": "https://api.openai.com/v1"
-    },
-    {
-      "name": "transcript_settings_base_url_custom_hint",
-      "value": "https://your-host/v1"
-    },
-    {
-      "name": "transcript_settings_model",
-      "value": "模型名称"
-    },
-    {
-      "name": "transcript_settings_model_hint",
-      "value": "例如 gpt-4o-transcribe"
-    },
-    {
-      "name": "transcript_settings_section_key",
-      "value": "API Key"
-    },
-    {
-      "name": "transcript_settings_key",
-      "value": "API Key"
-    },
-    {
-      "name": "transcript_settings_key_saved",
-      "value": "已安全保存在本机"
-    },
-    {
-      "name": "transcript_settings_key_empty",
-      "value": "未配置"
-    },
-    {
-      "name": "transcript_settings_key_placeholder",
-      "value": "粘贴密钥"
-    },
-    {
-      "name": "transcript_settings_show",
-      "value": "显示"
-    },
-    {
-      "name": "transcript_settings_hide",
-      "value": "隐藏"
-    },
-    {
-      "name": "transcript_settings_save_key",
-      "value": "保存密钥"
-    },
-    {
-      "name": "transcript_settings_delete_key",
-      "value": "删除密钥"
-    },
-    {
-      "name": "transcript_settings_key_required",
-      "value": "请先输入 API Key。"
-    },
-    {
-      "name": "transcript_settings_key_saved_ok",
-      "value": "API Key 已安全保存。"
-    },
-    {
-      "name": "transcript_settings_key_save_failed",
-      "value": "无法在本机安全保存密钥。"
-    },
-    {
-      "name": "transcript_settings_key_deleted",
-      "value": "密钥已删除。"
-    },
-    {
-      "name": "transcript_settings_section_strategy",
-      "value": "生成策略"
-    },
-    {
-      "name": "transcript_settings_policy",
-      "value": "官方文字稿不可用时"
     },
     {
       "name": "transcript_policy_ask",
@@ -2537,136 +2321,8 @@
       "value": "不自动生成"
     },
     {
-      "name": "transcript_settings_wifi_only",
-      "value": "仅 Wi-Fi 下自动生成"
-    },
-    {
-      "name": "transcript_settings_confirm_cost",
-      "value": "生成前确认费用"
-    },
-    {
-      "name": "transcript_settings_auto_warning",
-      "value": "AI 转写可能产生 API 费用，并会把音频发送给你选择的第三方服务商。"
-    },
-    {
-      "name": "transcript_settings_section_test",
-      "value": "连接测试"
-    },
-    {
-      "name": "transcript_settings_test",
-      "value": "测试连接"
-    },
-    {
-      "name": "transcript_settings_testing",
-      "value": "正在测试..."
-    },
-    {
-      "name": "transcript_settings_test_hint",
-      "value": "会上传 App 内置的 1 秒测试音频到你的端点，可能产生极少量费用。"
-    },
-    {
-      "name": "transcript_settings_state_ok",
-      "value": "配置成功"
-    },
-    {
-      "name": "transcript_settings_state_failed",
-      "value": "配置失败"
-    },
-    {
-      "name": "transcript_settings_state_not_tested",
-      "value": "未测试"
-    },
-    {
-      "name": "transcript_settings_state_not_configured",
-      "value": "未配置"
-    },
-    {
-      "name": "transcript_settings_err_url",
-      "value": "请先填写 API 地址。"
-    },
-    {
-      "name": "transcript_settings_err_https",
-      "value": "API 地址必须是 HTTPS。"
-    },
-    {
-      "name": "transcript_settings_err_model",
-      "value": "请先填写模型名称。"
-    },
-    {
-      "name": "transcript_settings_err_key",
-      "value": "请先配置 API Key。"
-    },
-    {
-      "name": "transcript_settings_err_testaudio",
-      "value": "内置测试音频缺失。"
-    },
-    {
-      "name": "transcript_settings_test_ok_prefix",
-      "value": "语音识别服务已通过测试。"
-    },
-    {
-      "name": "transcript_settings_timed_yes",
-      "value": "支持返回时间戳。"
-    },
-    {
-      "name": "transcript_settings_timed_no",
-      "value": "未返回时间戳，无法做播放同步。"
-    },
-    {
-      "name": "transcript_settings_section_cache",
-      "value": "已缓存文字稿"
-    },
-    {
-      "name": "transcript_settings_cache_count",
-      "value": "条数："
-    },
-    {
-      "name": "transcript_settings_cache_size",
-      "value": "占用："
-    },
-    {
-      "name": "transcript_settings_clear_ai_cache",
-      "value": "清理 AI 文字稿缓存"
-    },
-    {
-      "name": "transcript_settings_cache_cleared",
-      "value": "已清理 AI 文字稿缓存。"
-    },
-    {
-      "name": "transcript_settings_privacy",
-      "value": "使用 AI 生成文字稿时，音频可能发送至您选择的第三方模型服务商处理，并可能产生费用。API Key 保存在系统安全存储中，不会上传到其它任何地方。"
-    },
-    {
-      "name": "transcript_settings_ai_entry",
-      "value": "AI 文字稿"
-    },
-    {
-      "name": "transcript_settings_ai_entry_hint",
-      "value": "配置语音识别模型，为没有官方文字稿的播客生成文字稿。"
-    },
-    {
       "name": "settings_category_ai",
       "value": "人工智能"
-    },
-    {
-      "name": "transcript_ai_need_download",
-      "value": "请先下载这一集，再生成文字稿。"
-    },
-    {
-      "name": "transcript_ai_too_large",
-      "value": "音频超过该接口单次上限，长音频分段转写暂未实现。"
-    },
-    {
-      "name": "transcript_ai_cost_hint",
-      "value": "这会把音频发送给服务商并可能产生费用，继续吗？"
-    },
-    {
-      "name": "transcript_ai_generating",
-      "value": "正在生成文字稿..."
-    },
-    {
-      "name": "transcript_ai_failed",
-      "value": "生成失败："
     },
     {
       "name": "feed_preview_play_failed",
@@ -2810,7 +2466,7 @@
     },
     {
       "name": "legal_data_body",
-      "value": "订阅内容来自你自行添加的 RSS/Atom 地址，版权归各播客方所有。中文播客榜数据来自 xyzrank.com 公开接口，苹果播客榜来自 Apple 公开榜单，搜索来自 iTunes Search 等公开接口；这些数据仅用于发现与检索，本应用不存储、不分发其原始数据。"
+      "value": "订阅内容来自你自行添加的 RSS/Atom 地址，版权归各播客方所有。中文播客榜使用 xyzrank.com 公开接口，苹果播客榜使用 Apple 公开榜单数据，搜索使用 iTunes Search 等公开接口；这些数据仅用于发现与检索，本应用不存储、不分发其原始数据。「从链接补全单集」会读取第三方播客网页上的公开信息（标题、简介、封面、音频地址），仅在你手动触发时发起请求，且默认关闭。"
     },
     {
       "name": "legal_privacy_title",
@@ -2818,7 +2474,7 @@
     },
     {
       "name": "legal_privacy_body",
-      "value": "本应用不收集、不上传任何个人身份信息，没有账号体系、统计 SDK 与广告。订阅、播放进度、队列、下载与书签等数据仅保存在本机。网络请求只用于抓取订阅源、获取榜单与搜索结果、下载音频，以及你自行配置的 AI 文字稿服务。"
+      "value": "本应用不收集、不上传任何个人身份信息，没有账号体系、统计 SDK 与广告。订阅、播放进度、队列、下载、书签与收听统计仅保存在本机。网络请求只用于：抓取你订阅的播客源、获取榜单与搜索结果、下载音频，以及（默认关闭、需你手动开启的）从第三方网页补全停更节目的条目。"
     },
     {
       "name": "legal_permission_title",
@@ -2826,7 +2482,7 @@
     },
     {
       "name": "legal_permission_body",
-      "value": "网络与网络状态：抓取订阅、榜单与下载音频。后台运行：后台播放与定时刷新。震动：睡眠定时器到点提醒。加速度传感器：摇一摇触发播放控制。以上权限均可在系统设置中随时关闭。"
+      "value": "网络与网络状态：抓取订阅、获取榜单与搜索结果、下载音频。后台运行：后台音频播放与定时刷新。震动：睡眠定时结束前提醒。加速度传感器：睡眠定时期间「摇一摇」重置倒计时。以上权限均可在系统设置中随时关闭。"
     },
     {
       "name": "about_row_base_repo",
