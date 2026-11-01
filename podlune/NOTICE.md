@@ -7,7 +7,7 @@
 | 产品名称 | **Podlune** |
 | bundleName | `com.podlune.app` |
 | 平台 | HarmonyOS NEXT（ArkTS / ArkUI） |
-| 版本 | 见 `AppScope/app.json5`（当前 1.0.18 / 1000018） |
+| 版本 | 见 `AppScope/app.json5`（当前 1.0.00 / 1000000） |
 
 ## 二、上游来源
 
