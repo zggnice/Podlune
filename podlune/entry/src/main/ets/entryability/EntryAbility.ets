@@ -26,9 +26,12 @@ const THEME_LIGHT: number = 1;
 export default class EntryAbility extends UIAbility {
   /** 主窗口（主题/语言切换后重新下发状态栏配色要用） */
   private mainWindow: window.Window | undefined = undefined;
+  /** 供首帧后的延迟初始化复用 */
+  private static ctx: common.UIAbilityContext | undefined = undefined;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(0x0000, TAG, 'EntryAbility onCreate');
+    EntryAbility.ctx = this.context;
     UserPreferences.init(this.context);
     // 推荐板块的本地缓存文件需要上下文（见 CuratedFeedService）
     CuratedFeedService.init(this.context);
@@ -40,8 +43,6 @@ export default class EntryAbility extends UIAbility {
     DownloadManager.init(this.context);
     NotificationService.init(this.context);
     BackgroundPlaybackGuard.setContext(this.context);
-    // 冷启动恢复定时刷新：workScheduler 任务不随进程重启自动恢复（对照上游每次启动 restartUpdateAlarm）
-    WorkSchedulerManager.restore(this.context);
     EntryAbility.applySavedColorMode(this.context);
     EntryAbility.applySavedLanguage();
   }
@@ -89,20 +90,11 @@ export default class EntryAbility extends UIAbility {
     FeedValidators.init(this.context);
     BookmarkStore.init(this.context);
       hilog.info(0x0000, TAG, 'DbManager init ok');
-      // 修正历史遗留：补全条目把「秒」当毫秒存，导致卡片/详情时长显示 0:03
-      EpisodeRepository.fixSupplementDurations().catch((error: Error) => {
-        hilog.warn(0x0000, TAG, 'fixSupplementDurations failed: %{public}s', error.message);
-      });
       this.loadIndex(windowStage);
     }).catch((error: Error) => {
       hilog.error(0x0000, TAG, 'DbManager init failed: %{public}s', error.message);
       // 初始化失败也要渲染 UI，避免白屏
       this.loadIndex(windowStage);
-    });
-    AvSessionBridge.init(this.context).then(() => {
-      hilog.info(0x0000, TAG, 'AvSession init ok');
-    }).catch((error: Error) => {
-      hilog.error(0x0000, TAG, 'AvSession init failed: %{public}s', error.message);
     });
   }
 
@@ -173,11 +165,32 @@ export default class EntryAbility extends UIAbility {
         return;
       }
       hilog.info(0x0000, TAG, 'loadContent succeeded');
+      EntryAbility.runDeferredInit();
       // UI 加载完成后申请通知权限（未授权时新单集通知会被系统静默丢弃）
       NotificationService.ensureEnabled().catch((error: Error) => {
         hilog.warn(0x0000, TAG, 'ensureEnabled failed: %{public}s', error.message);
       });
     });
+  }
+
+  /**
+   * 首帧之后再跑的初始化：这些工作不影响首页首屏，但过去排在 loadContent 之前，
+   * 会把「启动页停留时间」拉长（尤其 fixSupplementDurations 要扫一遍单集表）。
+   * 现在统一放到首帧渲染完成之后，用宏任务让出一帧，避免与首屏渲染抢主线程。
+   */
+  private static runDeferredInit(): void {
+    setTimeout(() => {
+      WorkSchedulerManager.restore(EntryAbility.ctx as common.UIAbilityContext);
+      // 修正历史遗留：补全条目把「秒」当毫秒存，导致卡片/详情时长显示 0:03
+      EpisodeRepository.fixSupplementDurations().catch((error: Error) => {
+        hilog.warn(0x0000, TAG, 'fixSupplementDurations failed: %{public}s', error.message);
+      });
+      AvSessionBridge.init(EntryAbility.ctx as common.UIAbilityContext).then(() => {
+        hilog.info(0x0000, TAG, 'AvSession init ok');
+      }).catch((error: Error) => {
+        hilog.error(0x0000, TAG, 'AvSession init failed: %{public}s', error.message);
+      });
+    }, 200);
   }
 
   /** 退出时释放长时任务，避免残留的前台任务影响下次启动 */
