@@ -1,4 +1,7 @@
 import router from '@ohos.router';
+import { promptAction } from '@kit.ArkUI';
+import pasteboard from '@ohos.pasteboard';
+import { Want } from '@kit.AbilityKit';
 import common from '@ohos.app.ability.common';
 import { ConfigurationConstant } from '@kit.AbilityKit';
 import bundleManager from '@ohos.bundle.bundleManager';
@@ -10,6 +13,7 @@ import { WorkSchedulerManager } from '../work/WorkSchedulerManager';
 import { ImageCache } from '../services/ImageCache';
 import { PlayerManager } from '../player/PlayerManager';
 import { DesignTokens } from '../common/DesignTokens';
+import { AppLinks } from '../common/AppLinks';
 import { NavigationMaterial } from '../common/NavigationMaterial';
 import { SwipeActions, SwipeActionId, SwipeScreen, SwipeActionSpec, swipeActionSpec } from '../common/SwipeActions';
 import { AppBar } from '../components/AppBar';
@@ -395,12 +399,12 @@ export struct SettingsPage {
           this.categoryTitle($r('app.string.about_title'))
           RowCard({ pad: 0, radius: 20 }) {
             Column() {
-              // 隐私政策与开源声明（商店提审要求：应用内可查阅）
-      this.navRow($r('sys.symbol.doc_plaintext'), $r('app.string.setting_legal'), '', () => {
-        router.pushUrl({ url: 'pages/LegalPage' });
-      })
-      this.rowDivider()
-      this.navRow($r('sys.symbol.info_circle'), $r('app.string.about_entry'), this.appVersion, () => {
+                  // 隐私政策（商店提审要求：应用内可点开，指向 AGC 托管的协议页）
+              this.navRow($r('sys.symbol.doc_plaintext'), $r('app.string.setting_legal'), '', () => {
+                this.openPrivacyPolicy();
+              })
+              this.rowDivider()
+              this.navRow($r('sys.symbol.info_circle'), $r('app.string.about_entry'), this.appVersion, () => {
                 router.pushUrl({ url: 'pages/AboutPage' });
               })
             }
@@ -580,6 +584,28 @@ export struct SettingsPage {
     .onClick(() => {
       onTap();
     })
+  }
+
+  /** 隐私政策：系统浏览器打开 AGC 托管的协议页；无浏览器时复制链接并提示 */
+  async openPrivacyPolicy(): Promise<void> {
+    const url: string = AppLinks.PRIVACY_POLICY_URL;
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const want: Want = {
+        action: 'ohos.want.action.viewData',
+        entities: ['entity.system.browsable'],
+        uri: url
+      };
+      await context.startAbility(want);
+    } catch (error) {
+      try {
+        const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, url);
+        await pasteboard.getSystemPasteboard().setData(data);
+        promptAction.showToast({ message: $r('app.string.about_link_copied') });
+      } catch (inner) {
+        promptAction.showToast({ message: url });
+      }
+    }
   }
 
   /** 设置行右侧的当前字体名（未导入时显示「系统默认」） */

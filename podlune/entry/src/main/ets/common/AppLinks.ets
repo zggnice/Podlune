@@ -21,7 +21,7 @@ export class AppLinks {
   static readonly DOCS: string = 'https://github.com/zggnice/Podlune#readme';
   /** 在线隐私政策（商店要求可公网访问；由 GitHub Pages 托管） */
   static readonly PRIVACY_POLICY_URL: string =
-    'https://zggnice.github.io/Podlune/legal/privacy.html';
+    'https://agreement-drcn.hispace.dbankcloud.cn/index.html?lang=zh&agreementId=2074215422017723072';
   /** 反馈邮箱（应用内「反馈问题」一行展示并复制此地址） */
   static readonly FEEDBACK_EMAIL: string = 'zhj0062@outlook.com';
   /** GPL-3.0 许可全文 */
